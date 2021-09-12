@@ -1,0 +1,14 @@
+version: "3.0"
+
+volumes:
+  kyojin-indie-data: {}
+
+services:
+  kyojin-indie-mongo:
+    container_name: kyojin-indie-mongo
+    image: mongo:latest
+    volumes:
+      - kyojin-indie-data:/data/db
+    ports:
+      - 27017:27017
+    command: 'mongod --bind_ip 0.0.0.0'
