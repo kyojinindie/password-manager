@@ -6,7 +6,6 @@
     jasmine: true
   },
   extends: [
-    'standard'
   ],
   parserOptions: {
     ecmaVersion: 11
