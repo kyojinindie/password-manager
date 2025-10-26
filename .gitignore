@@ -41,3 +41,4 @@ temp/
 # Database
 *.sqlite
 *.db
+*.iml
