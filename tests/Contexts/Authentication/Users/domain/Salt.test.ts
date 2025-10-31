@@ -12,21 +12,15 @@ describe('Salt', () => {
     it('should throw error when value is empty', () => {
       const invalidSalt = SaltMother.invalidEmpty();
 
-      expect(() => SaltMother.create(invalidSalt)).toThrow(
-        'Salt cannot be empty'
-      );
+      expect(() => SaltMother.create(invalidSalt)).toThrow('Salt cannot be empty');
     });
 
     it('should throw error when value is null', () => {
-      expect(() => SaltMother.create(null as any)).toThrow(
-        'Salt cannot be empty'
-      );
+      expect(() => SaltMother.create(null as any)).toThrow('Salt cannot be empty');
     });
 
     it('should throw error when value is undefined', () => {
-      expect(() => SaltMother.create(undefined as any)).toThrow(
-        'Salt cannot be empty'
-      );
+      expect(() => SaltMother.create(undefined as any)).toThrow('Salt cannot be empty');
     });
   });
 

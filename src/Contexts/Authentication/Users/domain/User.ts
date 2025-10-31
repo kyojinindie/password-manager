@@ -6,6 +6,11 @@ import { MasterPasswordHash } from './MasterPasswordHash';
 import { Salt } from './Salt';
 import { IsActive } from './IsActive';
 import { CreatedAt } from './CreatedAt';
+import { FailedLoginAttempts } from './FailedLoginAttempts';
+import { LastLoginAt } from './LastLoginAt';
+import { MasterPasswordHashingService } from './MasterPasswordHashingService';
+import { AccountLockedException } from './AccountLockedException';
+import { InactiveUserException } from './InactiveUserException';
 
 export class User extends AggregateRoot {
   private readonly _id: UserId;
@@ -15,6 +20,8 @@ export class User extends AggregateRoot {
   private readonly _salt: Salt;
   private readonly _isActive: IsActive;
   private readonly _createdAt: CreatedAt;
+  private _failedLoginAttempts: FailedLoginAttempts;
+  private _lastLoginAt: LastLoginAt;
 
   public constructor(
     id: UserId,
@@ -23,7 +30,9 @@ export class User extends AggregateRoot {
     masterPasswordHash: MasterPasswordHash,
     salt: Salt,
     isActive: IsActive,
-    createdAt: CreatedAt
+    createdAt: CreatedAt,
+    failedLoginAttempts: FailedLoginAttempts,
+    lastLoginAt: LastLoginAt
   ) {
     super();
     this._id = id;
@@ -33,6 +42,8 @@ export class User extends AggregateRoot {
     this._salt = salt;
     this._isActive = isActive;
     this._createdAt = createdAt;
+    this._failedLoginAttempts = failedLoginAttempts;
+    this._lastLoginAt = lastLoginAt;
   }
 
   public static create(
@@ -44,7 +55,19 @@ export class User extends AggregateRoot {
     const id = UserId.generate();
     const isActive = new IsActive(true);
     const createdAt = new CreatedAt(new Date());
-    return new User(id, email, username, masterPasswordHash, salt, isActive, createdAt);
+    const failedLoginAttempts = FailedLoginAttempts.zero();
+    const lastLoginAt = LastLoginAt.empty();
+    return new User(
+      id,
+      email,
+      username,
+      masterPasswordHash,
+      salt,
+      isActive,
+      createdAt,
+      failedLoginAttempts,
+      lastLoginAt
+    );
   }
 
   public get id(): UserId {
@@ -75,6 +98,52 @@ export class User extends AggregateRoot {
     return this._createdAt;
   }
 
+  public get failedLoginAttempts(): FailedLoginAttempts {
+    return this._failedLoginAttempts;
+  }
+
+  public get lastLoginAt(): LastLoginAt {
+    return this._lastLoginAt;
+  }
+
+  public async verifyPassword(
+    plainPassword: string,
+    hashingService: MasterPasswordHashingService
+  ): Promise<boolean> {
+    return await hashingService.verify(plainPassword, this._masterPasswordHash.value);
+  }
+
+  public recordSuccessfulLogin(): void {
+    this.ensureIsActive();
+    this._failedLoginAttempts = this._failedLoginAttempts.reset();
+    this._lastLoginAt = LastLoginAt.now();
+  }
+
+  public recordFailedLoginAttempt(): void {
+    this._failedLoginAttempts = this._failedLoginAttempts.increment();
+  }
+
+  public isAccountLocked(): boolean {
+    return this._failedLoginAttempts.isAccountLocked();
+  }
+
+  public ensureCanLogin(): void {
+    this.ensureIsActive();
+    this.ensureIsNotLocked();
+  }
+
+  private ensureIsActive(): void {
+    if (this._isActive.isFalse()) {
+      throw new InactiveUserException();
+    }
+  }
+
+  private ensureIsNotLocked(): void {
+    if (this.isAccountLocked()) {
+      throw new AccountLockedException();
+    }
+  }
+
   public equals(other: User): boolean {
     if (!other || !(other instanceof User)) {
       return false;
@@ -90,6 +159,8 @@ export class User extends AggregateRoot {
     salt: string;
     isActive: boolean;
     createdAt: Date;
+    failedLoginAttempts: number;
+    lastLoginAt: Date | null;
   } {
     return {
       id: this._id.value,
@@ -99,6 +170,8 @@ export class User extends AggregateRoot {
       salt: this._salt.value,
       isActive: this._isActive.value,
       createdAt: this._createdAt.value,
+      failedLoginAttempts: this._failedLoginAttempts.value,
+      lastLoginAt: this._lastLoginAt.value,
     };
   }
 }

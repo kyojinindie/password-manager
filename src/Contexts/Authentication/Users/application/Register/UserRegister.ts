@@ -8,7 +8,7 @@ import { Salt } from '../../domain/Salt';
 import { RegisterUserRequest } from './RegisterUserRequest';
 
 export class UserRegister {
-  constructor(
+  public constructor(
     private readonly userRepository: UserRepository,
     private readonly hashingService: MasterPasswordHashingService
   ) {}

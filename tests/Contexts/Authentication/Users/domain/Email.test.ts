@@ -24,45 +24,33 @@ describe('Email', () => {
     it('should throw error when value is empty', () => {
       const invalidEmail = EmailMother.invalidEmpty();
 
-      expect(() => EmailMother.create(invalidEmail)).toThrow(
-        'Email cannot be empty'
-      );
+      expect(() => EmailMother.create(invalidEmail)).toThrow('Email cannot be empty');
     });
 
     it('should throw error when format is invalid', () => {
       const invalidEmail = EmailMother.invalidFormat();
 
-      expect(() => EmailMother.create(invalidEmail)).toThrow(
-        'Invalid email format'
-      );
+      expect(() => EmailMother.create(invalidEmail)).toThrow('Invalid email format');
     });
 
     it('should throw error when missing @ symbol', () => {
       const invalidEmail = EmailMother.invalidWithoutAt();
 
-      expect(() => EmailMother.create(invalidEmail)).toThrow(
-        'Invalid email format'
-      );
+      expect(() => EmailMother.create(invalidEmail)).toThrow('Invalid email format');
     });
 
     it('should throw error when missing domain', () => {
       const invalidEmail = EmailMother.invalidWithoutDomain();
 
-      expect(() => EmailMother.create(invalidEmail)).toThrow(
-        'Invalid email format'
-      );
+      expect(() => EmailMother.create(invalidEmail)).toThrow('Invalid email format');
     });
 
     it('should throw error when value is null', () => {
-      expect(() => EmailMother.create(null as any)).toThrow(
-        'Email cannot be empty'
-      );
+      expect(() => EmailMother.create(null as any)).toThrow('Email cannot be empty');
     });
 
     it('should throw error when value is undefined', () => {
-      expect(() => EmailMother.create(undefined as any)).toThrow(
-        'Email cannot be empty'
-      );
+      expect(() => EmailMother.create(undefined as any)).toThrow('Email cannot be empty');
     });
   });
 

@@ -32,9 +32,7 @@ describe('UserRegister', () => {
     expect(userId).toBeDefined();
     expect(userId.length).toBeGreaterThan(0);
 
-    const savedUser = await userRepository.findByEmail(
-      EmailMother.create(request.email)
-    );
+    const savedUser = await userRepository.findByEmail(EmailMother.create(request.email));
     expect(savedUser).not.toBeNull();
     expect(savedUser!.email.value).toBe(request.email.toLowerCase());
     expect(savedUser!.username.value).toBe(request.username);
@@ -50,9 +48,7 @@ describe('UserRegister', () => {
 
     await userRegister.run(request);
 
-    const savedUser = await userRepository.findByEmail(
-      EmailMother.create(request.email)
-    );
+    const savedUser = await userRepository.findByEmail(EmailMother.create(request.email));
 
     expect(savedUser!.masterPasswordHash.value).not.toBe(request.masterPassword);
     expect(savedUser!.masterPasswordHash.value).toMatch(/^\$2[ayb]\$.{56}$/);
@@ -131,9 +127,7 @@ describe('UserRegister', () => {
       masterPassword: MasterPasswordMother.strong(),
     };
 
-    await expect(userRegister.run(request)).rejects.toThrow(
-      'Invalid email format'
-    );
+    await expect(userRegister.run(request)).rejects.toThrow('Invalid email format');
   });
 
   it('should throw error when username is too short', async () => {
