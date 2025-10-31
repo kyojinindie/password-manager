@@ -1,5 +1,6 @@
 import { Router } from 'express';
 import { LoginUserController } from '../controllers/LoginUserController';
+import { LogoutUserController } from '../controllers/LogoutUserController';
 
 /**
  * Authentication Routes
@@ -15,27 +16,33 @@ import { LoginUserController } from '../controllers/LoginUserController';
  *
  * Route Design:
  * - POST /auth/login - Login user with email and password
- * - Future routes: /auth/refresh, /auth/logout, etc.
+ * - POST /auth/logout - Logout user and invalidate tokens
+ * - Future routes: /auth/refresh, /auth/forgot-password, etc.
  */
 
 /**
  * Creates the authentication router with all dependencies injected
  *
  * @param loginController - Fully configured LoginUserController with all dependencies
+ * @param logoutController - Fully configured LogoutUserController with all dependencies
  * @returns Express Router with authentication routes configured
  *
  * Example usage:
  * ```typescript
  * import { createAuthRoutes } from './routes/auth.routes';
- * import { createLoginUserController } from './dependencies';
+ * import { createLoginUserController, createLogoutUserController } from './dependencies';
  *
  * const loginController = createLoginUserController(userRepository);
- * const authRouter = createAuthRoutes(loginController);
+ * const logoutController = createLogoutUserController();
+ * const authRouter = createAuthRoutes(loginController, logoutController);
  *
  * app.use('/auth', authRouter);
  * ```
  */
-export function createAuthRoutes(loginController: LoginUserController): Router {
+export function createAuthRoutes(
+  loginController: LoginUserController,
+  logoutController: LogoutUserController
+): Router {
   const router = Router();
 
   /**
@@ -69,11 +76,47 @@ export function createAuthRoutes(loginController: LoginUserController): Router {
   });
 
   /**
+   * POST /auth/logout
+   *
+   * Logout a user by blacklisting their tokens
+   *
+   * Request headers:
+   * Authorization: Bearer <access-token>
+   *
+   * Request body (optional):
+   * {
+   *   "refreshToken": "jwt-refresh-token"  // Optional
+   * }
+   *
+   * Success Response (204 No Content):
+   * - No body returned
+   * - Status 204 indicates successful logout
+   *
+   * Error Responses:
+   * - 400 Bad Request: Invalid token format
+   * - 401 Unauthorized: Missing or invalid Authorization header
+   * - 500 Internal Server Error: Unexpected error
+   *
+   * Authentication:
+   * - This endpoint REQUIRES authentication
+   * - Add authentication middleware before this route in production
+   *
+   * Notes:
+   * - Blacklists the provided access token
+   * - Optionally blacklists refresh token if provided
+   * - Idempotent: calling multiple times has same effect
+   * - No validation needed - invalid tokens are still blacklisted
+   */
+  router.post('/logout', (req, res) => {
+    void logoutController.run(req, res);
+  });
+
+  /**
    * Future routes can be added here:
    *
    * router.post('/refresh', (req, res) => refreshTokenController.run(req, res));
-   * router.post('/logout', (req, res) => logoutController.run(req, res));
    * router.post('/forgot-password', (req, res) => forgotPasswordController.run(req, res));
+   * router.post('/verify-email', (req, res) => verifyEmailController.run(req, res));
    */
 
   return router;

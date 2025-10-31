@@ -21,10 +21,14 @@
  */
 
 import { UserLogin } from '../application/Login/UserLogin';
+import { UserLogout } from '../application/Logout/UserLogout';
 import { LoginUserController } from './controllers/LoginUserController';
+import { LogoutUserController } from './controllers/LogoutUserController';
 import { JwtTokenGenerationService } from './JwtTokenGenerationService';
+import { InMemoryTokenBlacklistService } from './InMemoryTokenBlacklistService';
 import { MasterPasswordHashingService } from '../domain/MasterPasswordHashingService';
 import { UserRepository } from '../domain/UserRepository';
+import { TokenBlacklistService } from '../domain/TokenBlacklistService';
 
 /**
  * Creates and wires all dependencies for the Login feature
@@ -92,6 +96,59 @@ export function createUserLoginUseCase(userRepository: UserRepository): UserLogi
 }
 
 /**
+ * Creates and wires all dependencies for the Logout feature
+ *
+ * Dependency Graph:
+ * ```
+ * LogoutUserController
+ *   └─> UserLogout (use case)
+ *       └─> TokenBlacklistService (port)
+ *           └─> InMemoryTokenBlacklistService (implementation)
+ * ```
+ *
+ * @returns Configured LogoutUserController ready to handle HTTP requests
+ *
+ * Notes:
+ * - Logout doesn't need UserRepository (no DB access)
+ * - Uses in-memory blacklist (replace with Redis in production)
+ * - Simple dependency chain compared to Login
+ */
+export function createLogoutUserController(): LogoutUserController {
+  // Step 1: Create token blacklist service (Secondary Adapter)
+  const blacklistService = createTokenBlacklistService();
+
+  // Step 2: Create application service (Use Case) with blacklist service
+  const userLogout = new UserLogout(blacklistService);
+
+  // Step 3: Create controller (Primary Adapter) with use case
+  const logoutController = new LogoutUserController(userLogout);
+
+  return logoutController;
+}
+
+/**
+ * Creates the Token Blacklist Service
+ *
+ * Returns an in-memory implementation for now.
+ * In production, replace with RedisTokenBlacklistService.
+ *
+ * @returns InMemoryTokenBlacklistService instance
+ */
+export function createTokenBlacklistService(): TokenBlacklistService {
+  return new InMemoryTokenBlacklistService();
+}
+
+/**
+ * Creates the UserLogout use case with all dependencies
+ *
+ * @returns UserLogout instance configured with blacklist service
+ */
+export function createUserLogoutUseCase(): UserLogout {
+  const blacklistService = createTokenBlacklistService();
+  return new UserLogout(blacklistService);
+}
+
+/**
  * Helper function to safely get JWT secret from environment
  *
  * @throws Error if JWT_SECRET is not configured
@@ -114,7 +171,8 @@ function getJwtSecretFromEnvironment(): string {
  *
  * ```typescript
  * import express from 'express';
- * import { createLoginUserController } from './Contexts/Authentication/Users/infrastructure/dependencies';
+ * import { createAuthRoutes } from './Contexts/Authentication/Users/infrastructure/routes/auth.routes';
+ * import { createLoginUserController, createLogoutUserController } from './Contexts/Authentication/Users/infrastructure/dependencies';
  * import { TypeOrmUserRepository } from './Contexts/Authentication/Users/infrastructure/persistence/TypeOrmUserRepository';
  *
  * // Create Express app
@@ -124,11 +182,17 @@ function getJwtSecretFromEnvironment(): string {
  * // Create repository implementation (this would be in your app setup)
  * const userRepository = new TypeOrmUserRepository(dataSource);
  *
- * // Create controller with all dependencies wired
+ * // Create controllers with all dependencies wired
  * const loginController = createLoginUserController(userRepository);
+ * const logoutController = createLogoutUserController();
  *
- * // Register route
- * app.post('/auth/login', (req, res) => loginController.run(req, res));
+ * // Create and register authentication routes
+ * const authRouter = createAuthRoutes(loginController, logoutController);
+ * app.use('/auth', authRouter);
+ *
+ * // Or register routes individually:
+ * // app.post('/auth/login', (req, res) => loginController.run(req, res));
+ * // app.post('/auth/logout', (req, res) => logoutController.run(req, res));
  *
  * // Start server
  * app.listen(3000, () => console.log('Server running on port 3000'));
