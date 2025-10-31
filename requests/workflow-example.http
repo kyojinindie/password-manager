@@ -1,0 +1,278 @@
+###
+# Complete Workflow Example
+#
+# This file demonstrates a complete end-to-end workflow
+# using the Password Manager API.
+#
+# This is useful for:
+# - Learning the complete authentication flow
+# - Testing the API manually
+# - Understanding request/response patterns
+# - Quick API exploration
+###
+
+@baseUrl = http://localhost:3000
+
+###############################################################################
+# COMPLETE AUTHENTICATION WORKFLOW
+###############################################################################
+
+###
+# Step 1: Check if server is running
+# This is always a good first step
+###
+
+### 1. Health Check
+# @name healthCheck
+GET {{baseUrl}}/health
+
+###
+#  Expected Response (200 OK):
+# {
+#   "status": "ok",
+#   "timestamp": "2025-10-31T22:24:36.984Z",
+#   "environment": "development"
+# }
+#
+# If you get connection error, start the server: npm run dev
+###
+
+###
+# Step 2: Login to get authentication tokens
+# IMPORTANT: You need a registered user first
+# For now, you'll need to create test users manually
+###
+
+### 2. User Login
+# @name login
+POST {{baseUrl}}/auth/login
+Content-Type: application/json
+
+{
+  "email": "test@example.com",
+  "masterPassword": "SecurePassword123!"
+}
+
+###
+#  Expected Response (200 OK):
+# {
+#   "userId": "550e8400-e29b-41d4-a716-446655440000",
+#   "accessToken": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...",
+#   "refreshToken": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...",
+#   "expiresIn": 900
+# }
+#
+# =Ý Notes:
+# - accessToken: Use this for authenticated requests (expires in 15 minutes)
+# - refreshToken: Use this to get new access token (expires in 7 days)
+# - expiresIn: Seconds until access token expires (900 = 15 minutes)
+#
+#   Save these tokens! You'll need them for the next steps.
+###
+
+###
+# Step 3: Use the access token for authenticated requests
+# Copy the accessToken from Step 2 response and use it below
+###
+
+### 3. Make Authenticated Request (Example - this would be a protected endpoint)
+# Note: This is just an example. Replace with actual protected endpoints.
+# @name authenticatedRequest
+GET {{baseUrl}}/users/me
+Authorization: Bearer <PASTE_YOUR_ACCESS_TOKEN_HERE>
+
+###
+# Replace <PASTE_YOUR_ACCESS_TOKEN_HERE> with the actual token from Step 2
+#
+# In VS Code REST Client, you can also chain requests:
+# Authorization: Bearer {{login.response.body.accessToken}}
+###
+
+###
+# Step 4: Logout when done
+# This invalidates your tokens
+###
+
+### 4. User Logout
+# @name logout
+POST {{baseUrl}}/auth/logout
+Content-Type: application/json
+Authorization: Bearer <PASTE_YOUR_ACCESS_TOKEN_HERE>
+
+{
+  "refreshToken": "<PASTE_YOUR_REFRESH_TOKEN_HERE>"
+}
+
+###
+#  Expected Response (204 No Content):
+# - No body returned
+# - Status 204 means logout was successful
+# - Both tokens are now blacklisted and cannot be used
+#
+# =Ý Notes:
+# - You can logout with just the access token (header)
+# - Including refreshToken in body will blacklist both tokens
+# - After logout, the tokens are invalidated
+###
+
+###############################################################################
+# AUTOMATED WORKFLOW (VS Code REST Client)
+###############################################################################
+
+###
+# The following workflow automatically chains requests
+# Only works with VS Code REST Client extension
+###
+
+### AUTO Step 1: Login and capture tokens
+# @name autoLogin
+POST {{baseUrl}}/auth/login
+Content-Type: application/json
+
+{
+  "email": "test@example.com",
+  "masterPassword": "SecurePassword123!"
+}
+
+### AUTO Step 2: Use captured token automatically
+# @name autoAuthRequest
+GET {{baseUrl}}/health
+Authorization: Bearer {{autoLogin.response.body.accessToken}}
+
+### AUTO Step 3: Logout with captured tokens
+# @name autoLogout
+POST {{baseUrl}}/auth/logout
+Content-Type: application/json
+Authorization: Bearer {{autoLogin.response.body.accessToken}}
+
+{
+  "refreshToken": "{{autoLogin.response.body.refreshToken}}"
+}
+
+###############################################################################
+# ERROR SCENARIOS
+###############################################################################
+
+### Error: Login with wrong password
+# @name errorWrongPassword
+POST {{baseUrl}}/auth/login
+Content-Type: application/json
+
+{
+  "email": "test@example.com",
+  "masterPassword": "WrongPassword123!"
+}
+
+###
+# L Expected Response (401 Unauthorized):
+# {
+#   "error": "Unauthorized",
+#   "message": "Invalid email or password"
+# }
+###
+
+### Error: Login with invalid email format
+# @name errorInvalidEmail
+POST {{baseUrl}}/auth/login
+Content-Type: application/json
+
+{
+  "email": "not-an-email",
+  "masterPassword": "SecurePassword123!"
+}
+
+###
+# L Expected Response (400 Bad Request):
+# {
+#   "error": "Bad Request",
+#   "message": "Email must be a valid email format"
+# }
+###
+
+### Error: Logout without token
+# @name errorLogoutNoToken
+POST {{baseUrl}}/auth/logout
+Content-Type: application/json
+
+{}
+
+###
+# L Expected Response (401 Unauthorized):
+# {
+#   "error": "Unauthorized",
+#   "message": "Missing Authorization header"
+# }
+###
+
+### Error: Access non-existent endpoint
+# @name error404
+GET {{baseUrl}}/nonexistent
+
+###
+# L Expected Response (404 Not Found):
+# {
+#   "error": "Not Found",
+#   "message": "Cannot GET /nonexistent",
+#   "path": "/nonexistent"
+# }
+###
+
+###############################################################################
+# TESTING CHECKLIST
+###############################################################################
+
+###
+#  Basic Tests
+# [ ] Server health check returns 200
+# [ ] Login with valid credentials returns 200 with tokens
+# [ ] Login with invalid credentials returns 401
+# [ ] Logout with valid token returns 204
+# [ ] Logout without token returns 401
+# [ ] Non-existent endpoints return 404
+#
+#  Token Tests
+# [ ] Access token is a valid JWT
+# [ ] Refresh token is a valid JWT
+# [ ] Tokens expire after specified time
+# [ ] Blacklisted tokens cannot be reused
+#
+#  Security Tests
+# [ ] Passwords are hashed (never returned in responses)
+# [ ] Failed login attempts are tracked
+# [ ] Account locks after too many failed attempts
+# [ ] Tokens are invalidated on logout
+#
+#  Error Handling
+# [ ] Missing fields return 400 with descriptive message
+# [ ] Invalid formats return 400 with descriptive message
+# [ ] Invalid credentials return 401
+# [ ] Server errors return 500 without exposing details
+###
+
+###############################################################################
+# QUICK REFERENCE
+###############################################################################
+
+###
+# Authentication Flow:
+# 1. POST /auth/login ’ Get accessToken & refreshToken
+# 2. Use accessToken in Authorization header for protected endpoints
+# 3. POST /auth/logout ’ Invalidate tokens
+#
+# Token Lifetimes:
+# - Access Token: 15 minutes (900 seconds)
+# - Refresh Token: 7 days (604800 seconds)
+#
+# Authorization Header Format:
+# Authorization: Bearer <your-access-token>
+#
+# Common Status Codes:
+# - 200: Success with response body
+# - 204: Success without response body
+# - 400: Bad request (invalid input)
+# - 401: Unauthorized (authentication failed)
+# - 403: Forbidden (authenticated but not allowed)
+# - 404: Not found
+# - 423: Locked (account locked)
+# - 500: Internal server error
+###

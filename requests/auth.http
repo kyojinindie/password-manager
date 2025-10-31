@@ -1,0 +1,247 @@
+###
+# Authentication API Endpoints
+#
+# This file contains example HTTP requests for testing the Authentication API.
+#
+# How to use:
+# - VS Code: Install "REST Client" extension by Huachao Mao
+# - IntelliJ/WebStorm: Built-in HTTP Client support
+# - Click "Send Request" above each request to execute
+#
+# Base URL: http://localhost:3000
+###
+
+@baseUrl = http://localhost:3000
+@contentType = application/json
+
+###############################################################################
+# Variables - Update these with your test data
+###############################################################################
+
+# Test user credentials (you'll need to register a user first)
+@testEmail = test@example.com
+@testPassword = SecurePassword123!
+
+# Access token (will be populated after login)
+@accessToken = your-access-token-here
+
+# Refresh token (will be populated after login)
+@refreshToken = your-refresh-token-here
+
+###############################################################################
+# 1. LOGIN USER
+###############################################################################
+
+### Login with valid credentials
+# @name login
+POST {{baseUrl}}/auth/login
+Content-Type: {{contentType}}
+
+{
+  "email": "{{testEmail}}",
+  "masterPassword": "{{testPassword}}"
+}
+
+###
+# Expected Response (200 OK):
+# {
+#   "userId": "uuid-string",
+#   "accessToken": "jwt-access-token",
+#   "refreshToken": "jwt-refresh-token",
+#   "expiresIn": 900
+# }
+###
+
+### Login - Missing email
+# @name loginMissingEmail
+POST {{baseUrl}}/auth/login
+Content-Type: {{contentType}}
+
+{
+  "masterPassword": "{{testPassword}}"
+}
+
+###
+# Expected Response (400 Bad Request):
+# {
+#   "error": "Bad Request",
+#   "message": "Email is required"
+# }
+###
+
+### Login - Missing password
+# @name loginMissingPassword
+POST {{baseUrl}}/auth/login
+Content-Type: {{contentType}}
+
+{
+  "email": "{{testEmail}}"
+}
+
+###
+# Expected Response (400 Bad Request):
+# {
+#   "error": "Bad Request",
+#   "message": "Master password is required"
+# }
+###
+
+### Login - Invalid email format
+# @name loginInvalidEmail
+POST {{baseUrl}}/auth/login
+Content-Type: {{contentType}}
+
+{
+  "email": "invalid-email-format",
+  "masterPassword": "{{testPassword}}"
+}
+
+###
+# Expected Response (400 Bad Request):
+# {
+#   "error": "Bad Request",
+#   "message": "Email must be a valid email format"
+# }
+###
+
+### Login - Invalid credentials
+# @name loginInvalidCredentials
+POST {{baseUrl}}/auth/login
+Content-Type: {{contentType}}
+
+{
+  "email": "nonexistent@example.com",
+  "masterPassword": "WrongPassword123!"
+}
+
+###
+# Expected Response (401 Unauthorized):
+# {
+#   "error": "Unauthorized",
+#   "message": "Invalid email or password"
+# }
+###
+
+###############################################################################
+# 2. LOGOUT USER
+###############################################################################
+
+### Logout with access token
+# @name logout
+# IMPORTANT: Replace the token below with a real access token from login response
+POST {{baseUrl}}/auth/logout
+Content-Type: {{contentType}}
+Authorization: Bearer {{accessToken}}
+
+{}
+
+###
+# Expected Response (204 No Content):
+# - No body returned
+# - HTTP Status 204 indicates successful logout
+###
+
+### Logout with both access and refresh tokens
+# @name logoutWithRefresh
+# This will blacklist both tokens
+POST {{baseUrl}}/auth/logout
+Content-Type: {{contentType}}
+Authorization: Bearer {{accessToken}}
+
+{
+  "refreshToken": "{{refreshToken}}"
+}
+
+###
+# Expected Response (204 No Content):
+# - Both tokens are now blacklisted
+# - No body returned
+###
+
+### Logout - Missing authorization header
+# @name logoutMissingAuth
+POST {{baseUrl}}/auth/logout
+Content-Type: {{contentType}}
+
+{}
+
+###
+# Expected Response (401 Unauthorized):
+# {
+#   "error": "Unauthorized",
+#   "message": "Missing Authorization header"
+# }
+###
+
+### Logout - Invalid token format
+# @name logoutInvalidToken
+POST {{baseUrl}}/auth/logout
+Content-Type: {{contentType}}
+Authorization: Bearer invalid-token-format
+
+{}
+
+###
+# Expected Response (400 Bad Request):
+# {
+#   "error": "Bad Request",
+#   "message": "Invalid token format"
+# }
+###
+
+###############################################################################
+# WORKFLOW EXAMPLE: Complete Login/Logout Flow
+###############################################################################
+
+### Step 1: Login
+# @name workflowLogin
+POST {{baseUrl}}/auth/login
+Content-Type: {{contentType}}
+
+{
+  "email": "{{testEmail}}",
+  "masterPassword": "{{testPassword}}"
+}
+
+### Step 2: Copy the accessToken from Step 1 response
+# After running Step 1, copy the "accessToken" value from the response
+# and update the @accessToken variable at the top of this file
+
+### Step 3: Make authenticated requests
+# Use the accessToken in Authorization header for protected endpoints
+
+### Step 4: Logout
+# @name workflowLogout
+POST {{baseUrl}}/auth/logout
+Content-Type: {{contentType}}
+Authorization: Bearer {{accessToken}}
+
+{
+  "refreshToken": "{{refreshToken}}"
+}
+
+###############################################################################
+# NOTES
+###############################################################################
+#
+# 1. Authentication Flow:
+#    - Login returns accessToken (15 min expiry) and refreshToken (7 days expiry)
+#    - Use accessToken for all authenticated requests
+#    - Use refreshToken to get new accessToken when it expires (not yet implemented)
+#    - Logout blacklists both tokens
+#
+# 2. Token Security:
+#    - Access tokens expire in 15 minutes
+#    - Refresh tokens expire in 7 days
+#    - Blacklisted tokens cannot be used even if not expired
+#
+# 3. Before Testing:
+#    - Make sure the server is running: npm run dev
+#    - Server should be at http://localhost:3000
+#    - You need a registered user to test login (registration not yet implemented)
+#
+# 4. Creating Test Users:
+#    - Since registration is not yet implemented, you can create test users manually
+#    - Or wait for the registration endpoint to be implemented
+#
+###############################################################################

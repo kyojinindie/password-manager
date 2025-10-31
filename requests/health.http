@@ -1,0 +1,107 @@
+###
+# Health Check & Server Status
+#
+# This file contains health check and monitoring endpoints.
+# Use these to verify the server is running and healthy.
+#
+# How to use:
+# - VS Code: Install "REST Client" extension by Huachao Mao
+# - IntelliJ/WebStorm: Built-in HTTP Client support
+# - Click "Send Request" above each request to execute
+###
+
+@baseUrl = http://localhost:3000
+
+###############################################################################
+# HEALTH CHECK ENDPOINT
+###############################################################################
+
+### Basic health check
+# @name healthCheck
+GET {{baseUrl}}/health
+
+###
+# Expected Response (200 OK):
+# {
+#   "status": "ok",
+#   "timestamp": "2025-10-31T22:24:36.984Z",
+#   "environment": "development"
+# }
+#
+# This endpoint:
+# - Returns 200 OK when server is running
+# - Shows current timestamp
+# - Shows current environment (development/production)
+# - Useful for load balancers and monitoring systems
+###
+
+###############################################################################
+# 404 NOT FOUND TEST
+###############################################################################
+
+### Test non-existent GET endpoint
+# @name notFoundGet
+GET {{baseUrl}}/nonexistent-endpoint
+
+###
+# Expected Response (404 Not Found):
+# {
+#   "error": "Not Found",
+#   "message": "Cannot GET /nonexistent-endpoint",
+#   "path": "/nonexistent-endpoint"
+# }
+###
+
+### Test non-existent POST endpoint
+# @name notFoundPost
+POST {{baseUrl}}/nonexistent-endpoint
+Content-Type: application/json
+
+{
+  "test": "data"
+}
+
+###
+# Expected Response (404 Not Found):
+# {
+#   "error": "Not Found",
+#   "message": "Cannot POST /nonexistent-endpoint",
+#   "path": "/nonexistent-endpoint"
+# }
+###
+
+###############################################################################
+# SERVER CONNECTIVITY TESTS
+###############################################################################
+
+### Quick ping test (using health endpoint)
+# @name ping
+GET {{baseUrl}}/health
+
+### Test with different HTTP methods on health endpoint
+
+### OPTIONS request
+# @name healthOptions
+OPTIONS {{baseUrl}}/health
+
+### HEAD request
+# @name healthHead
+HEAD {{baseUrl}}/health
+
+###############################################################################
+# NOTES
+###############################################################################
+#
+# Health Check Use Cases:
+# 1. Development: Quick check if server is running
+# 2. CI/CD: Verify deployment succeeded
+# 3. Load Balancers: Health check endpoint
+# 4. Monitoring: Uptime monitoring
+# 5. Testing: Verify server starts correctly
+#
+# Response Fields:
+# - status: "ok" means server is healthy
+# - timestamp: Current server time (ISO 8601 format)
+# - environment: Current NODE_ENV value
+#
+###############################################################################
