@@ -24,25 +24,19 @@ export class MasterPasswordHashingService {
     }
 
     if (!/[A-Z]/.test(password)) {
-      throw new Error(
-        'Master Password must contain at least one uppercase letter'
-      );
+      throw new Error('Master Password must contain at least one uppercase letter');
     }
 
     if (!/[a-z]/.test(password)) {
-      throw new Error(
-        'Master Password must contain at least one lowercase letter'
-      );
+      throw new Error('Master Password must contain at least one lowercase letter');
     }
 
     if (!/[0-9]/.test(password)) {
       throw new Error('Master Password must contain at least one number');
     }
 
-    if (!/[!@#$%^&*()_+\-=\[\]{};':"\\|,.<>\/?]/.test(password)) {
-      throw new Error(
-        'Master Password must contain at least one special character'
-      );
+    if (!/[!@#$%^&*()_+\-=[\]{};':"\\|,.<>/?]/.test(password)) {
+      throw new Error('Master Password must contain at least one special character');
     }
   }
 }

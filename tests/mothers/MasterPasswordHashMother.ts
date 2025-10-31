@@ -14,9 +14,7 @@ export class MasterPasswordHashMother {
 
   public static bcryptFormat(): MasterPasswordHash {
     // More realistic bcrypt hash format
-    return new MasterPasswordHash(
-      `$2b$12$${faker.string.alphanumeric(53)}`
-    );
+    return new MasterPasswordHash(`$2b$12$${faker.string.alphanumeric(53)}`);
   }
 
   public static randomValue(): string {

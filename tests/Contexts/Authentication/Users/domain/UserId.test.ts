@@ -13,23 +13,17 @@ describe('UserId', () => {
     it('should throw error when value is empty', () => {
       const invalidValue = UserIdMother.invalidEmpty();
 
-      expect(() => UserIdMother.create(invalidValue)).toThrow(
-        'UserId cannot be empty'
-      );
+      expect(() => UserIdMother.create(invalidValue)).toThrow('UserId cannot be empty');
     });
 
     it('should throw error when value is whitespace only', () => {
       const invalidValue = UserIdMother.invalidWhitespace();
 
-      expect(() => UserIdMother.create(invalidValue)).toThrow(
-        'UserId cannot be empty'
-      );
+      expect(() => UserIdMother.create(invalidValue)).toThrow('UserId cannot be empty');
     });
 
     it('should throw error when value is null', () => {
-      expect(() => UserIdMother.create(null as any)).toThrow(
-        'UserId cannot be empty'
-      );
+      expect(() => UserIdMother.create(null as any)).toThrow('UserId cannot be empty');
     });
 
     it('should throw error when value is undefined', () => {

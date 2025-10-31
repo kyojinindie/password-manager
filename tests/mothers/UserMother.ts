@@ -6,6 +6,8 @@ import { MasterPasswordHash } from '../../src/Contexts/Authentication/Users/doma
 import { Salt } from '../../src/Contexts/Authentication/Users/domain/Salt';
 import { IsActive } from '../../src/Contexts/Authentication/Users/domain/IsActive';
 import { CreatedAt } from '../../src/Contexts/Authentication/Users/domain/CreatedAt';
+import { FailedLoginAttempts } from '../../src/Contexts/Authentication/Users/domain/FailedLoginAttempts';
+import { LastLoginAt } from '../../src/Contexts/Authentication/Users/domain/LastLoginAt';
 import { UserIdMother } from './UserIdMother';
 import { EmailMother } from './EmailMother';
 import { UsernameMother } from './UsernameMother';
@@ -13,6 +15,8 @@ import { MasterPasswordHashMother } from './MasterPasswordHashMother';
 import { SaltMother } from './SaltMother';
 import { IsActiveMother } from './IsActiveMother';
 import { CreatedAtMother } from './CreatedAtMother';
+import { FailedLoginAttemptsMother } from './FailedLoginAttemptsMother';
+import { LastLoginAtMother } from './LastLoginAtMother';
 
 export class UserMother {
   public static create(params?: {
@@ -23,6 +27,8 @@ export class UserMother {
     salt?: Salt;
     isActive?: IsActive;
     createdAt?: CreatedAt;
+    failedLoginAttempts?: FailedLoginAttempts;
+    lastLoginAt?: LastLoginAt;
   }): User {
     return new User(
       params?.id ?? UserIdMother.random(),
@@ -31,7 +37,9 @@ export class UserMother {
       params?.masterPasswordHash ?? MasterPasswordHashMother.random(),
       params?.salt ?? SaltMother.random(),
       params?.isActive ?? IsActiveMother.active(),
-      params?.createdAt ?? CreatedAtMother.random()
+      params?.createdAt ?? CreatedAtMother.random(),
+      params?.failedLoginAttempts ?? FailedLoginAttemptsMother.zero(),
+      params?.lastLoginAt ?? LastLoginAtMother.empty()
     );
   }
 
@@ -80,5 +88,42 @@ export class UserMother {
       masterPasswordHash: MasterPasswordHashMother.random(),
       salt: SaltMother.random(),
     };
+  }
+
+  public static withFailedAttempts(attempts: FailedLoginAttempts): User {
+    return this.create({ failedLoginAttempts: attempts });
+  }
+
+  public static withLockedAccount(): User {
+    return this.create({
+      failedLoginAttempts: FailedLoginAttemptsMother.locked(),
+    });
+  }
+
+  public static withLastLogin(lastLoginAt: LastLoginAt): User {
+    return this.create({ lastLoginAt });
+  }
+
+  public static withRecentLogin(): User {
+    return this.create({ lastLoginAt: LastLoginAtMother.now() });
+  }
+
+  public static neverLoggedIn(): User {
+    return this.create({
+      failedLoginAttempts: FailedLoginAttemptsMother.zero(),
+      lastLoginAt: LastLoginAtMother.empty(),
+    });
+  }
+
+  public static withOneFailedAttempt(): User {
+    return this.create({
+      failedLoginAttempts: FailedLoginAttemptsMother.one(),
+    });
+  }
+
+  public static withFourFailedAttempts(): User {
+    return this.create({
+      failedLoginAttempts: FailedLoginAttemptsMother.four(),
+    });
   }
 }
