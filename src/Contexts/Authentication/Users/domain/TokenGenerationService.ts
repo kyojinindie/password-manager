@@ -5,4 +5,5 @@ import { UserId } from './UserId';
 export interface TokenGenerationService {
   generateAccessToken(userId: UserId): Promise<AccessToken>;
   generateRefreshToken(userId: UserId): Promise<RefreshToken>;
+  verifyRefreshToken(refreshToken: RefreshToken): Promise<UserId>;
 }

@@ -30,6 +30,7 @@ import { createAuthRoutes } from '../../Contexts/Authentication/Users/infrastruc
 import {
   createLoginUserController,
   createLogoutUserController,
+  createRefreshSessionController,
 } from '../../Contexts/Authentication/Users/infrastructure/dependencies';
 import { InMemoryUserRepository } from '../../../tests/Contexts/Authentication/Users/infrastructure/InMemoryUserRepository';
 
@@ -121,6 +122,7 @@ function createApp(): Application {
    */
   const loginController = createLoginUserController(userRepository);
   const logoutController = createLogoutUserController();
+  const refreshController = createRefreshSessionController();
 
   // ============================================================================
   // Route Registration
@@ -149,8 +151,9 @@ function createApp(): Application {
    * Registers all authentication-related endpoints:
    * - POST /auth/login - User login
    * - POST /auth/logout - User logout
+   * - POST /auth/refresh - Refresh session
    */
-  const authRouter = createAuthRoutes(loginController, logoutController);
+  const authRouter = createAuthRoutes(loginController, logoutController, refreshController);
   app.use('/auth', authRouter);
 
   /**
@@ -217,6 +220,7 @@ async function startServer(): Promise<void> {
       console.log('Available Endpoints:');
       console.log(`  POST http://localhost:${CONFIG.PORT}/auth/login`);
       console.log(`  POST http://localhost:${CONFIG.PORT}/auth/logout`);
+      console.log(`  POST http://localhost:${CONFIG.PORT}/auth/refresh`);
       console.log('='.repeat(60));
       console.log('Server is ready to accept connections');
       console.log('Press Ctrl+C to stop the server');

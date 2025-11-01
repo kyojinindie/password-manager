@@ -22,8 +22,10 @@
 
 import { UserLogin } from '../application/Login/UserLogin';
 import { UserLogout } from '../application/Logout/UserLogout';
+import { SessionRefresher } from '../application/RefreshSession/SessionRefresher';
 import { LoginUserController } from './controllers/LoginUserController';
 import { LogoutUserController } from './controllers/LogoutUserController';
+import { RefreshSessionController } from './controllers/RefreshSessionController';
 import { JwtTokenGenerationService } from './JwtTokenGenerationService';
 import { InMemoryTokenBlacklistService } from './InMemoryTokenBlacklistService';
 import { MasterPasswordHashingService } from '../domain/MasterPasswordHashingService';
@@ -146,6 +148,51 @@ export function createTokenBlacklistService(): TokenBlacklistService {
 export function createUserLogoutUseCase(): UserLogout {
   const blacklistService = createTokenBlacklistService();
   return new UserLogout(blacklistService);
+}
+
+/**
+ * Creates and wires all dependencies for the Refresh Session feature
+ *
+ * Dependency Graph:
+ * ```
+ * RefreshSessionController
+ *   └─> SessionRefresher (use case)
+ *       ├─> TokenGenerationService (port)
+ *       │   └─> JwtTokenGenerationService (implementation)
+ *       └─> TokenBlacklistService (port)
+ *           └─> InMemoryTokenBlacklistService (implementation)
+ * ```
+ *
+ * @returns Configured RefreshSessionController ready to handle HTTP requests
+ *
+ * Notes:
+ * - Refresh session needs token service for verification and generation
+ * - Also needs blacklist service to check if refresh token was revoked
+ * - No UserRepository needed (only token operations)
+ */
+export function createRefreshSessionController(): RefreshSessionController {
+  // Step 1: Create infrastructure services (Secondary Adapters)
+  const tokenService = createTokenGenerationService();
+  const blacklistService = createTokenBlacklistService();
+
+  // Step 2: Create application service (Use Case) with dependencies
+  const sessionRefresher = new SessionRefresher(tokenService, blacklistService);
+
+  // Step 3: Create controller (Primary Adapter) with use case
+  const refreshController = new RefreshSessionController(sessionRefresher);
+
+  return refreshController;
+}
+
+/**
+ * Creates the SessionRefresher use case with all dependencies
+ *
+ * @returns SessionRefresher instance configured with token and blacklist services
+ */
+export function createSessionRefresherUseCase(): SessionRefresher {
+  const tokenService = createTokenGenerationService();
+  const blacklistService = createTokenBlacklistService();
+  return new SessionRefresher(tokenService, blacklistService);
 }
 
 /**
