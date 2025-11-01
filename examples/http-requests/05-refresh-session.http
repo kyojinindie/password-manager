@@ -1,0 +1,187 @@
+###
+# Feature F5 - Refresh Session
+# Endpoint: POST /api/auth/refresh
+#
+# Purpose:
+# Refresh the user session by providing a valid refresh token.
+# This generates a new access token without requiring re-authentication.
+#
+# Prerequisites:
+# 1. User must be registered (see 01-register-user.http)
+# 2. User must be logged in to get a refresh token (see 02-login-user.http)
+# 3. Refresh token must not be expired or blacklisted
+#
+# Use Cases:
+# - Access token has expired, need to get a new one
+# - Extend user session without re-authentication
+# - Background token refresh in client applications
+###
+
+### Variables
+@baseUrl = http://localhost:3000
+@refreshToken = eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.your-refresh-token-here
+
+###
+# SUCCESS CASE: Valid refresh token
+# Expected: 200 OK with new access token
+#
+# Response:
+# {
+#   "accessToken": "new-jwt-access-token",
+#   "expiresIn": 900
+# }
+POST {{baseUrl}}/auth/refresh
+Content-Type: application/json
+
+{
+  "refreshToken": "{{refreshToken}}"
+}
+
+###
+# ERROR CASE 1: Missing refresh token
+# Expected: 400 Bad Request
+#
+# Response:
+# {
+#   "error": "Bad Request",
+#   "message": "Refresh token is required"
+# }
+POST {{baseUrl}}/auth/refresh
+Content-Type: application/json
+
+{
+}
+
+###
+# ERROR CASE 2: Empty refresh token
+# Expected: 400 Bad Request
+#
+# Response:
+# {
+#   "error": "Bad Request",
+#   "message": "Refresh token cannot be empty"
+# }
+POST {{baseUrl}}/auth/refresh
+Content-Type: application/json
+
+{
+  "refreshToken": ""
+}
+
+###
+# ERROR CASE 3: Invalid refresh token (not a string)
+# Expected: 400 Bad Request
+#
+# Response:
+# {
+#   "error": "Bad Request",
+#   "message": "Refresh token must be a string"
+# }
+POST {{baseUrl}}/auth/refresh
+Content-Type: application/json
+
+{
+  "refreshToken": 12345
+}
+
+###
+# ERROR CASE 4: Expired or invalid refresh token
+# Expected: 401 Unauthorized
+#
+# Response:
+# {
+#   "error": "Unauthorized",
+#   "message": "The provided refresh token is invalid, expired, or has been revoked"
+# }
+POST {{baseUrl}}/auth/refresh
+Content-Type: application/json
+
+{
+  "refreshToken": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.invalid-token"
+}
+
+###
+# ERROR CASE 5: Blacklisted refresh token (after logout)
+# Expected: 401 Unauthorized
+#
+# To test:
+# 1. Login to get tokens (02-login-user.http)
+# 2. Logout with refresh token (04-logout-user.http)
+# 3. Try to use the same refresh token here
+#
+# Response:
+# {
+#   "error": "Unauthorized",
+#   "message": "The provided refresh token is invalid, expired, or has been revoked"
+# }
+POST {{baseUrl}}/auth/refresh
+Content-Type: application/json
+
+{
+  "refreshToken": "{{refreshToken}}"
+}
+
+###
+# COMPLETE WORKFLOW: Login → Refresh → Use New Token
+#
+# Step 1: Login to get initial tokens
+POST {{baseUrl}}/auth/login
+Content-Type: application/json
+
+{
+  "email": "john.doe@example.com",
+  "masterPassword": "SecurePassword123!"
+}
+
+# Save the refreshToken from response
+
+###
+# Step 2: Wait for access token to expire (or pretend it expired)
+# Then refresh to get new access token
+POST {{baseUrl}}/auth/refresh
+Content-Type: application/json
+
+{
+  "refreshToken": "paste-refresh-token-from-step-1"
+}
+
+# Save the new accessToken from response
+
+###
+# Step 3: Use the new access token for authenticated requests
+# (Example: when we implement password management features)
+GET {{baseUrl}}/api/passwords
+Authorization: Bearer paste-new-access-token-from-step-2
+
+###
+# NOTES:
+#
+# 1. Refresh Token Lifetime:
+#    - Refresh tokens are long-lived (default: 7 days)
+#    - Access tokens are short-lived (default: 15 minutes)
+#    - Use refresh tokens to get new access tokens without re-login
+#
+# 2. Security Considerations:
+#    - Store refresh tokens securely (HttpOnly cookies recommended)
+#    - Never expose refresh tokens in URLs or logs
+#    - Refresh tokens are single-use in some implementations (not this one)
+#    - Logout invalidates both access and refresh tokens
+#
+# 3. Token Rotation Best Practices:
+#    - Refresh tokens when access token is about to expire
+#    - Implement token rotation (issue new refresh token on refresh)
+#    - Detect and handle concurrent refresh attempts
+#    - Implement refresh token families for enhanced security
+#
+# 4. Error Handling:
+#    - 400: Client error (missing/invalid format)
+#    - 401: Authentication error (invalid/expired/revoked token)
+#    - 500: Server error (retry with exponential backoff)
+#
+# 5. Client Implementation Tips:
+#    - Intercept 401 errors on API calls
+#    - Attempt token refresh automatically
+#    - Retry original request with new token
+#    - Logout user if refresh also fails
+#    - Queue concurrent requests during refresh
+###

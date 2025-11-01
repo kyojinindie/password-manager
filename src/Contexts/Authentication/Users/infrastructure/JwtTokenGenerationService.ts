@@ -3,13 +3,14 @@ import { TokenGenerationService } from '../domain/TokenGenerationService';
 import { AccessToken } from '../domain/AccessToken';
 import { RefreshToken } from '../domain/RefreshToken';
 import { UserId } from '../domain/UserId';
+import { InvalidRefreshTokenException } from '../domain/InvalidRefreshTokenException';
 
 /**
  * JWT Token Generation Service - Secondary Adapter
  *
  * Implements the TokenGenerationService port defined by the domain layer.
  * This adapter encapsulates the jsonwebtoken library and provides JWT-based
- * token generation for authentication.
+ * token generation and verification for authentication.
  *
  * Architecture Notes:
  * - This is a SECONDARY (driven/output) adapter in Hexagonal Architecture
@@ -20,12 +21,14 @@ import { UserId } from '../domain/UserId';
  * Responsibilities:
  * - Generate JWT access tokens with userId in payload
  * - Generate JWT refresh tokens with userId in payload
- * - Sign tokens with secret from environment
+ * - Verify JWT refresh tokens and extract userId
+ * - Sign and verify tokens with secret from environment
  * - Set appropriate expiration times from domain VOs
  *
  * Technology Encapsulation:
  * - Domain doesn't know we're using JWT
  * - Domain only knows about AccessToken and RefreshToken VOs
+ * - JWT errors are wrapped in domain exceptions (InvalidRefreshTokenException)
  * - If we switch from JWT to another token format, only this file changes
  */
 export class JwtTokenGenerationService implements TokenGenerationService {
@@ -100,6 +103,55 @@ export class JwtTokenGenerationService implements TokenGenerationService {
 
     // Return domain VO (which validates JWT format)
     return new RefreshToken(token);
+  }
+
+  /**
+   * Verifies a JWT refresh token and extracts the user identifier
+   *
+   * @param refreshToken - The refresh token to verify
+   * @returns UserId extracted from the valid token
+   * @throws InvalidRefreshTokenException if token is invalid, expired, or not a refresh token
+   *
+   * Verification steps:
+   * 1. Verifies JWT signature with secret
+   * 2. Checks token expiration (automatic in jwt.verify)
+   * 3. Validates token type is 'refresh'
+   * 4. Extracts and returns userId
+   *
+   * Error handling:
+   * - Invalid signature → InvalidRefreshTokenException
+   * - Expired token → InvalidRefreshTokenException
+   * - Wrong token type → InvalidRefreshTokenException
+   * - Missing userId → InvalidRefreshTokenException
+   */
+  // eslint-disable-next-line @typescript-eslint/require-await
+  public async verifyRefreshToken(refreshToken: RefreshToken): Promise<UserId> {
+    try {
+      // Verify token signature and expiration
+      // jwt.verify throws JsonWebTokenError for invalid signature
+      // jwt.verify throws TokenExpiredError for expired tokens
+      const decoded = jwt.verify(refreshToken.value, this.secret) as {
+        userId: string;
+        type: string;
+      };
+
+      // Validate token type
+      if (decoded.type !== 'refresh') {
+        throw new InvalidRefreshTokenException();
+      }
+
+      // Validate userId exists in payload
+      if (!decoded.userId) {
+        throw new InvalidRefreshTokenException();
+      }
+
+      // Convert string userId to domain VO
+      return new UserId(decoded.userId);
+    } catch (error) {
+      // Wrap all JWT errors (invalid signature, expired, malformed) into domain exception
+      // This hides JWT implementation details from the domain layer
+      throw new InvalidRefreshTokenException();
+    }
   }
 
   /**

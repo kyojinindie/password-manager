@@ -10,10 +10,14 @@ export class MockTokenGenerationService implements TokenGenerationService {
   private refreshTokenToReturn: RefreshToken;
   private generateAccessTokenCalls: UserId[] = [];
   private generateRefreshTokenCalls: UserId[] = [];
+  private verifyRefreshTokenCalls: RefreshToken[] = [];
+  private userIdToReturnFromVerification: UserId;
+  private shouldVerificationFail: boolean = false;
 
-  constructor(accessToken?: AccessToken, refreshToken?: RefreshToken) {
+  constructor(accessToken?: AccessToken, refreshToken?: RefreshToken, userId?: UserId) {
     this.accessTokenToReturn = accessToken ?? AccessTokenMother.random();
     this.refreshTokenToReturn = refreshToken ?? RefreshTokenMother.random();
+    this.userIdToReturnFromVerification = userId ?? new UserId('default-user-id');
   }
 
   public static withTokens(
@@ -27,6 +31,18 @@ export class MockTokenGenerationService implements TokenGenerationService {
     return new MockTokenGenerationService();
   }
 
+  public static withSuccessfulVerification(userId: UserId): MockTokenGenerationService {
+    const mock = new MockTokenGenerationService(undefined, undefined, userId);
+    mock.shouldVerificationFail = false;
+    return mock;
+  }
+
+  public static withFailedVerification(): MockTokenGenerationService {
+    const mock = new MockTokenGenerationService();
+    mock.shouldVerificationFail = true;
+    return mock;
+  }
+
   public async generateAccessToken(userId: UserId): Promise<AccessToken> {
     this.generateAccessTokenCalls.push(userId);
     return this.accessTokenToReturn;
@@ -37,6 +53,16 @@ export class MockTokenGenerationService implements TokenGenerationService {
     return this.refreshTokenToReturn;
   }
 
+  public async verifyRefreshToken(refreshToken: RefreshToken): Promise<UserId> {
+    this.verifyRefreshTokenCalls.push(refreshToken);
+
+    if (this.shouldVerificationFail) {
+      throw new Error('Invalid or expired token');
+    }
+
+    return this.userIdToReturnFromVerification;
+  }
+
   // Test helpers
   public getAccessTokenCalls(): UserId[] {
     return this.generateAccessTokenCalls;
@@ -44,6 +70,10 @@ export class MockTokenGenerationService implements TokenGenerationService {
 
   public getRefreshTokenCalls(): UserId[] {
     return this.generateRefreshTokenCalls;
+  }
+
+  public getVerifyRefreshTokenCalls(): RefreshToken[] {
+    return this.verifyRefreshTokenCalls;
   }
 
   public wasCalledWithUserId(userId: UserId): boolean {
@@ -56,5 +86,17 @@ export class MockTokenGenerationService implements TokenGenerationService {
 
   public setRefreshToken(token: RefreshToken): void {
     this.refreshTokenToReturn = token;
+  }
+
+  public setUserIdForVerification(userId: UserId): void {
+    this.userIdToReturnFromVerification = userId;
+  }
+
+  public setVerificationToFail(): void {
+    this.shouldVerificationFail = true;
+  }
+
+  public setVerificationToSucceed(): void {
+    this.shouldVerificationFail = false;
   }
 }

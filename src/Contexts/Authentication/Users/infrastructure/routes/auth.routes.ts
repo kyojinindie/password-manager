@@ -1,6 +1,7 @@
 import { Router } from 'express';
 import { LoginUserController } from '../controllers/LoginUserController';
 import { LogoutUserController } from '../controllers/LogoutUserController';
+import { RefreshSessionController } from '../controllers/RefreshSessionController';
 
 /**
  * Authentication Routes
@@ -17,7 +18,8 @@ import { LogoutUserController } from '../controllers/LogoutUserController';
  * Route Design:
  * - POST /auth/login - Login user with email and password
  * - POST /auth/logout - Logout user and invalidate tokens
- * - Future routes: /auth/refresh, /auth/forgot-password, etc.
+ * - POST /auth/refresh - Refresh session with refresh token
+ * - Future routes: /auth/forgot-password, /auth/verify-email, etc.
  */
 
 /**
@@ -25,23 +27,30 @@ import { LogoutUserController } from '../controllers/LogoutUserController';
  *
  * @param loginController - Fully configured LoginUserController with all dependencies
  * @param logoutController - Fully configured LogoutUserController with all dependencies
+ * @param refreshController - Fully configured RefreshSessionController with all dependencies
  * @returns Express Router with authentication routes configured
  *
  * Example usage:
  * ```typescript
  * import { createAuthRoutes } from './routes/auth.routes';
- * import { createLoginUserController, createLogoutUserController } from './dependencies';
+ * import {
+ *   createLoginUserController,
+ *   createLogoutUserController,
+ *   createRefreshSessionController
+ * } from './dependencies';
  *
  * const loginController = createLoginUserController(userRepository);
  * const logoutController = createLogoutUserController();
- * const authRouter = createAuthRoutes(loginController, logoutController);
+ * const refreshController = createRefreshSessionController();
+ * const authRouter = createAuthRoutes(loginController, logoutController, refreshController);
  *
  * app.use('/auth', authRouter);
  * ```
  */
 export function createAuthRoutes(
   loginController: LoginUserController,
-  logoutController: LogoutUserController
+  logoutController: LogoutUserController,
+  refreshController: RefreshSessionController
 ): Router {
   const router = Router();
 
@@ -112,9 +121,40 @@ export function createAuthRoutes(
   });
 
   /**
+   * POST /auth/refresh
+   *
+   * Refresh user session with a valid refresh token
+   *
+   * Request body:
+   * {
+   *   "refreshToken": "jwt-refresh-token"
+   * }
+   *
+   * Success Response (200):
+   * {
+   *   "accessToken": "new-jwt-access-token",
+   *   "expiresIn": 900
+   * }
+   *
+   * Error Responses:
+   * - 400 Bad Request: Missing or invalid refreshToken field
+   * - 401 Unauthorized: Invalid, expired, or revoked refresh token
+   * - 500 Internal Server Error: Unexpected error
+   *
+   * Notes:
+   * - No authentication middleware required (uses refresh token from body)
+   * - Verifies refresh token is not blacklisted
+   * - Generates new access token without requiring re-authentication
+   * - Does NOT generate a new refresh token (only access token)
+   * - Refresh token remains valid until expiration or logout
+   */
+  router.post('/refresh', (req, res) => {
+    void refreshController.run(req, res);
+  });
+
+  /**
    * Future routes can be added here:
    *
-   * router.post('/refresh', (req, res) => refreshTokenController.run(req, res));
    * router.post('/forgot-password', (req, res) => forgotPasswordController.run(req, res));
    * router.post('/verify-email', (req, res) => verifyEmailController.run(req, res));
    */

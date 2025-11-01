@@ -9,6 +9,8 @@ export class MockTokenBlacklistService implements TokenBlacklistService {
     accessToken?: AccessToken;
     refreshToken?: RefreshToken;
   }> = [];
+  private isAccessTokenBlacklistedCalls: AccessToken[] = [];
+  private isRefreshTokenBlacklistedCalls: RefreshToken[] = [];
 
   public async addToBlacklist(
     accessToken?: AccessToken,
@@ -25,6 +27,16 @@ export class MockTokenBlacklistService implements TokenBlacklistService {
     }
   }
 
+  public async isAccessTokenBlacklisted(accessToken: AccessToken): Promise<boolean> {
+    this.isAccessTokenBlacklistedCalls.push(accessToken);
+    return this.blacklistedAccessTokens.some(t => t.equals(accessToken));
+  }
+
+  public async isRefreshTokenBlacklisted(refreshToken: RefreshToken): Promise<boolean> {
+    this.isRefreshTokenBlacklistedCalls.push(refreshToken);
+    return this.blacklistedRefreshTokens.some(t => t.equals(refreshToken));
+  }
+
   // Test helpers
   public getBlacklistedAccessTokens(): AccessToken[] {
     return this.blacklistedAccessTokens;
@@ -39,6 +51,14 @@ export class MockTokenBlacklistService implements TokenBlacklistService {
     refreshToken?: RefreshToken;
   }> {
     return this.addToBlacklistCalls;
+  }
+
+  public getIsAccessTokenBlacklistedCalls(): AccessToken[] {
+    return this.isAccessTokenBlacklistedCalls;
+  }
+
+  public getIsRefreshTokenBlacklistedCalls(): RefreshToken[] {
+    return this.isRefreshTokenBlacklistedCalls;
   }
 
   public wasCalledWithAccessToken(token: AccessToken): boolean {
@@ -64,5 +84,7 @@ export class MockTokenBlacklistService implements TokenBlacklistService {
     this.blacklistedAccessTokens = [];
     this.blacklistedRefreshTokens = [];
     this.addToBlacklistCalls = [];
+    this.isAccessTokenBlacklistedCalls = [];
+    this.isRefreshTokenBlacklistedCalls = [];
   }
 }
