@@ -2,6 +2,9 @@ import { UserMother } from '../../../../mothers/UserMother';
 import { UserIdMother } from '../../../../mothers/UserIdMother';
 import { FailedLoginAttemptsMother } from '../../../../mothers/FailedLoginAttemptsMother';
 import { LastLoginAtMother } from '../../../../mothers/LastLoginAtMother';
+import { MasterPasswordHashMother } from '../../../../mothers/MasterPasswordHashMother';
+import { SaltMother } from '../../../../mothers/SaltMother';
+import { User } from '../../../../../src/Contexts/Authentication/Users/domain/User';
 import { AccountLockedException } from '../../../../../src/Contexts/Authentication/Users/domain/AccountLockedException';
 import { InactiveUserException } from '../../../../../src/Contexts/Authentication/Users/domain/InactiveUserException';
 import { MockMasterPasswordHashingService } from '../../../../mocks/MockMasterPasswordHashingService';
@@ -402,6 +405,164 @@ describe('User', () => {
 
       expect(user.isAccountLocked()).toBe(false);
       expect(() => user.ensureCanLogin()).not.toThrow();
+    });
+  });
+
+  describe('changeMasterPassword', () => {
+    it('should return a new User instance with updated password hash', () => {
+      const user = UserMother.activeUser();
+      const newHash = MasterPasswordHashMother.random();
+      const newSalt = SaltMother.random();
+
+      const updatedUser = user.changeMasterPassword(newHash, newSalt);
+
+      expect(updatedUser).toBeInstanceOf(User);
+      expect(updatedUser).not.toBe(user); // Different instance
+      expect(updatedUser.masterPasswordHash.equals(newHash)).toBe(true);
+      expect(updatedUser.salt.equals(newSalt)).toBe(true);
+    });
+
+    it('should return a new User instance with updated salt', () => {
+      const user = UserMother.activeUser();
+      const newHash = MasterPasswordHashMother.random();
+      const newSalt = SaltMother.random();
+
+      const updatedUser = user.changeMasterPassword(newHash, newSalt);
+
+      expect(updatedUser.salt.equals(newSalt)).toBe(true);
+      expect(updatedUser.salt.equals(user.salt)).toBe(false);
+    });
+
+    it('should preserve the user id', () => {
+      const user = UserMother.activeUser();
+      const newHash = MasterPasswordHashMother.random();
+      const newSalt = SaltMother.random();
+
+      const updatedUser = user.changeMasterPassword(newHash, newSalt);
+
+      expect(updatedUser.id.equals(user.id)).toBe(true);
+    });
+
+    it('should preserve the email', () => {
+      const user = UserMother.activeUser();
+      const newHash = MasterPasswordHashMother.random();
+      const newSalt = SaltMother.random();
+
+      const updatedUser = user.changeMasterPassword(newHash, newSalt);
+
+      expect(updatedUser.email.equals(user.email)).toBe(true);
+    });
+
+    it('should preserve the username', () => {
+      const user = UserMother.activeUser();
+      const newHash = MasterPasswordHashMother.random();
+      const newSalt = SaltMother.random();
+
+      const updatedUser = user.changeMasterPassword(newHash, newSalt);
+
+      expect(updatedUser.username.equals(user.username)).toBe(true);
+    });
+
+    it('should preserve the isActive status', () => {
+      const user = UserMother.activeUser();
+      const newHash = MasterPasswordHashMother.random();
+      const newSalt = SaltMother.random();
+
+      const updatedUser = user.changeMasterPassword(newHash, newSalt);
+
+      expect(updatedUser.isActive.equals(user.isActive)).toBe(true);
+    });
+
+    it('should preserve the createdAt timestamp', () => {
+      const user = UserMother.activeUser();
+      const newHash = MasterPasswordHashMother.random();
+      const newSalt = SaltMother.random();
+
+      const updatedUser = user.changeMasterPassword(newHash, newSalt);
+
+      expect(updatedUser.createdAt.equals(user.createdAt)).toBe(true);
+    });
+
+    it('should preserve failed login attempts', () => {
+      const user = UserMother.withFourFailedAttempts();
+      const newHash = MasterPasswordHashMother.random();
+      const newSalt = SaltMother.random();
+
+      const updatedUser = user.changeMasterPassword(newHash, newSalt);
+
+      expect(updatedUser.failedLoginAttempts.equals(user.failedLoginAttempts)).toBe(
+        true
+      );
+      expect(updatedUser.failedLoginAttempts.value).toBe(4);
+    });
+
+    it('should preserve lastLoginAt', () => {
+      const user = UserMother.withRecentLogin();
+      const newHash = MasterPasswordHashMother.random();
+      const newSalt = SaltMother.random();
+
+      const updatedUser = user.changeMasterPassword(newHash, newSalt);
+
+      expect(updatedUser.lastLoginAt.equals(user.lastLoginAt)).toBe(true);
+    });
+
+    it('should work for inactive users', () => {
+      const user = UserMother.inactiveUser();
+      const newHash = MasterPasswordHashMother.random();
+      const newSalt = SaltMother.random();
+
+      const updatedUser = user.changeMasterPassword(newHash, newSalt);
+
+      expect(updatedUser.isActive.isFalse()).toBe(true);
+      expect(updatedUser.masterPasswordHash.equals(newHash)).toBe(true);
+    });
+
+    it('should work for locked accounts', () => {
+      const user = UserMother.withLockedAccount();
+      const newHash = MasterPasswordHashMother.random();
+      const newSalt = SaltMother.random();
+
+      const updatedUser = user.changeMasterPassword(newHash, newSalt);
+
+      expect(updatedUser.isAccountLocked()).toBe(true);
+      expect(updatedUser.masterPasswordHash.equals(newHash)).toBe(true);
+    });
+
+    it('should create two different instances when called twice', () => {
+      const user = UserMother.activeUser();
+      const newHash1 = MasterPasswordHashMother.random();
+      const newSalt1 = SaltMother.random();
+      const newHash2 = MasterPasswordHashMother.random();
+      const newSalt2 = SaltMother.random();
+
+      const updatedUser1 = user.changeMasterPassword(newHash1, newSalt1);
+      const updatedUser2 = user.changeMasterPassword(newHash2, newSalt2);
+
+      expect(updatedUser1).not.toBe(updatedUser2);
+      expect(updatedUser1.masterPasswordHash.equals(newHash1)).toBe(true);
+      expect(updatedUser2.masterPasswordHash.equals(newHash2)).toBe(true);
+    });
+
+    it('should maintain user equality based on id', () => {
+      const user = UserMother.activeUser();
+      const newHash = MasterPasswordHashMother.random();
+      const newSalt = SaltMother.random();
+
+      const updatedUser = user.changeMasterPassword(newHash, newSalt);
+
+      expect(user.equals(updatedUser)).toBe(true);
+    });
+
+    it('should handle users that never logged in', () => {
+      const user = UserMother.neverLoggedIn();
+      const newHash = MasterPasswordHashMother.random();
+      const newSalt = SaltMother.random();
+
+      const updatedUser = user.changeMasterPassword(newHash, newSalt);
+
+      expect(updatedUser.lastLoginAt.isEmpty()).toBe(true);
+      expect(updatedUser.failedLoginAttempts.isZero()).toBe(true);
+      expect(updatedUser.masterPasswordHash.equals(newHash)).toBe(true);
     });
   });
 });
