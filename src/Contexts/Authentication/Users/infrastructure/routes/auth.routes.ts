@@ -2,6 +2,7 @@ import { Router } from 'express';
 import { LoginUserController } from '../controllers/LoginUserController';
 import { LogoutUserController } from '../controllers/LogoutUserController';
 import { RefreshSessionController } from '../controllers/RefreshSessionController';
+import { ChangeMasterPasswordController } from '../controllers/ChangeMasterPasswordController';
 
 /**
  * Authentication Routes
@@ -28,6 +29,7 @@ import { RefreshSessionController } from '../controllers/RefreshSessionControlle
  * @param loginController - Fully configured LoginUserController with all dependencies
  * @param logoutController - Fully configured LogoutUserController with all dependencies
  * @param refreshController - Fully configured RefreshSessionController with all dependencies
+ * @param changePasswordController - Fully configured ChangeMasterPasswordController with all dependencies
  * @returns Express Router with authentication routes configured
  *
  * Example usage:
@@ -36,13 +38,15 @@ import { RefreshSessionController } from '../controllers/RefreshSessionControlle
  * import {
  *   createLoginUserController,
  *   createLogoutUserController,
- *   createRefreshSessionController
+ *   createRefreshSessionController,
+ *   createChangeMasterPasswordController
  * } from './dependencies';
  *
  * const loginController = createLoginUserController(userRepository);
  * const logoutController = createLogoutUserController();
  * const refreshController = createRefreshSessionController();
- * const authRouter = createAuthRoutes(loginController, logoutController, refreshController);
+ * const changePasswordController = createChangeMasterPasswordController(userRepository, passwordEntryRepository);
+ * const authRouter = createAuthRoutes(loginController, logoutController, refreshController, changePasswordController);
  *
  * app.use('/auth', authRouter);
  * ```
@@ -50,7 +54,8 @@ import { RefreshSessionController } from '../controllers/RefreshSessionControlle
 export function createAuthRoutes(
   loginController: LoginUserController,
   logoutController: LogoutUserController,
-  refreshController: RefreshSessionController
+  refreshController: RefreshSessionController,
+  changePasswordController: ChangeMasterPasswordController
 ): Router {
   const router = Router();
 
@@ -150,6 +155,49 @@ export function createAuthRoutes(
    */
   router.post('/refresh', (req, res) => {
     void refreshController.run(req, res);
+  });
+
+  /**
+   * PUT /auth/password
+   *
+   * Change user's master password
+   *
+   * Request headers:
+   * Authorization: Bearer <access-token>
+   *
+   * Request body:
+   * {
+   *   "currentMasterPassword": "CurrentSecurePass123!",
+   *   "newMasterPassword": "NewSecurePass456!"
+   * }
+   *
+   * Success Response (200):
+   * {
+   *   "userId": "uuid",
+   *   "passwordEntriesReEncrypted": 42,
+   *   "changedAt": "2024-01-15T10:30:00.000Z"
+   * }
+   *
+   * Error Responses:
+   * - 400 Bad Request: Missing or invalid fields
+   * - 401 Unauthorized: Wrong current password or missing authentication
+   * - 404 Not Found: User not found
+   * - 500 Internal Server Error: Re-encryption failure
+   *
+   * Security Notes:
+   * - REQUIRES authentication (JWT middleware)
+   * - User can only change their own password
+   * - Current password must be verified
+   * - All password entries are re-encrypted atomically
+   * - This operation may take time for users with many entries
+   *
+   * Implementation Note:
+   * - Authentication middleware must extract userId from JWT token
+   * - Middleware should add userId to req.user.userId
+   * - Controller expects req.user to be populated by middleware
+   */
+  router.put('/password', (req, res) => {
+    void changePasswordController.run(req, res);
   });
 
   /**

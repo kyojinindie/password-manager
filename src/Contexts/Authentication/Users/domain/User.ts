@@ -132,6 +132,39 @@ export class User extends AggregateRoot {
     this.ensureIsNotLocked();
   }
 
+  /**
+   * Changes the user's master password by returning a new User instance
+   * with the updated password hash and salt.
+   *
+   * This method follows the immutability principle by creating a new User
+   * instance instead of modifying the current one.
+   *
+   * Business Rules:
+   * - Maintains all other user properties unchanged
+   * - Only updates masterPasswordHash and salt
+   * - Preserves aggregate identity (same userId)
+   *
+   * @param newMasterPasswordHash - The new hashed master password
+   * @param newSalt - The new salt used for hashing
+   * @returns User - New User instance with updated credentials
+   */
+  public changeMasterPassword(
+    newMasterPasswordHash: MasterPasswordHash,
+    newSalt: Salt
+  ): User {
+    return new User(
+      this._id,
+      this._email,
+      this._username,
+      newMasterPasswordHash,
+      newSalt,
+      this._isActive,
+      this._createdAt,
+      this._failedLoginAttempts,
+      this._lastLoginAt
+    );
+  }
+
   private ensureIsActive(): void {
     if (this._isActive.isFalse()) {
       throw new InactiveUserException();

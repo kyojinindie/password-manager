@@ -23,14 +23,20 @@
 import { UserLogin } from '../application/Login/UserLogin';
 import { UserLogout } from '../application/Logout/UserLogout';
 import { SessionRefresher } from '../application/RefreshSession/SessionRefresher';
+import { MasterPasswordChanger } from '../application/ChangeMasterPassword/MasterPasswordChanger';
 import { LoginUserController } from './controllers/LoginUserController';
 import { LogoutUserController } from './controllers/LogoutUserController';
 import { RefreshSessionController } from './controllers/RefreshSessionController';
+import { ChangeMasterPasswordController } from './controllers/ChangeMasterPasswordController';
 import { JwtTokenGenerationService } from './JwtTokenGenerationService';
 import { InMemoryTokenBlacklistService } from './InMemoryTokenBlacklistService';
+import { PasswordEncryptionServiceImpl } from './PasswordEncryptionServiceImpl';
+import { InMemoryPasswordEntryRepository } from './InMemoryPasswordEntryRepository';
 import { MasterPasswordHashingService } from '../domain/MasterPasswordHashingService';
 import { UserRepository } from '../domain/UserRepository';
 import { TokenBlacklistService } from '../domain/TokenBlacklistService';
+import { PasswordEncryptionService } from '../application/ports/PasswordEncryptionService';
+import { PasswordEntryRepository } from '../application/ports/PasswordEntryRepository';
 
 /**
  * Creates and wires all dependencies for the Login feature
@@ -193,6 +199,104 @@ export function createSessionRefresherUseCase(): SessionRefresher {
   const tokenService = createTokenGenerationService();
   const blacklistService = createTokenBlacklistService();
   return new SessionRefresher(tokenService, blacklistService);
+}
+
+/**
+ * Creates and wires all dependencies for the Change Master Password feature
+ *
+ * Dependency Graph:
+ * ```
+ * ChangeMasterPasswordController
+ *   └─> MasterPasswordChanger (use case)
+ *       ├─> UserRepository (port - needs implementation)
+ *       ├─> PasswordEntryRepository (port)
+ *       │   └─> InMemoryPasswordEntryRepository (implementation)
+ *       ├─> MasterPasswordHashingService
+ *       └─> PasswordEncryptionService (port)
+ *           └─> PasswordEncryptionServiceImpl (implementation)
+ * ```
+ *
+ * @param userRepository - Concrete repository implementation (e.g., TypeOrmUserRepository, MongoUserRepository)
+ * @param passwordEntryRepository - Repository for password entries (cross-context adapter)
+ * @returns Configured ChangeMasterPasswordController ready to handle HTTP requests
+ *
+ * Notes:
+ * - This feature requires coordination with PasswordVault context
+ * - PasswordEntryRepository is a cross-context integration point
+ * - PasswordEncryptionService handles crypto operations (AES-256-GCM)
+ * - MasterPasswordHashingService handles password hashing (bcrypt)
+ */
+export function createChangeMasterPasswordController(
+  userRepository: UserRepository,
+  passwordEntryRepository: PasswordEntryRepository
+): ChangeMasterPasswordController {
+  // Step 1: Create infrastructure services (Secondary Adapters)
+  const hashingService = createHashingService();
+  const encryptionService = createPasswordEncryptionService();
+
+  // Step 2: Create application service (Use Case) with all dependencies
+  const masterPasswordChanger = new MasterPasswordChanger(
+    userRepository,
+    passwordEntryRepository,
+    hashingService,
+    encryptionService
+  );
+
+  // Step 3: Create controller (Primary Adapter) with use case
+  const changePasswordController = new ChangeMasterPasswordController(
+    masterPasswordChanger
+  );
+
+  return changePasswordController;
+}
+
+/**
+ * Creates the Password Encryption Service
+ *
+ * Returns an implementation that uses Node.js crypto with AES-256-GCM.
+ * This service encrypts password entries with the user's master password.
+ *
+ * @returns PasswordEncryptionService instance
+ */
+export function createPasswordEncryptionService(): PasswordEncryptionService {
+  return new PasswordEncryptionServiceImpl();
+}
+
+/**
+ * Creates the Password Entry Repository
+ *
+ * Returns an in-memory implementation for now.
+ * In production, replace with implementation that:
+ * - Accesses PasswordVault context's database
+ * - Or calls PasswordVault context's service/API
+ * - Or uses messaging for async communication
+ *
+ * @returns PasswordEntryRepository instance
+ */
+export function createPasswordEntryRepository(): PasswordEntryRepository {
+  return new InMemoryPasswordEntryRepository();
+}
+
+/**
+ * Creates the MasterPasswordChanger use case with all dependencies
+ *
+ * @param userRepository - User repository implementation
+ * @param passwordEntryRepository - Password entry repository implementation
+ * @returns MasterPasswordChanger instance
+ */
+export function createMasterPasswordChangerUseCase(
+  userRepository: UserRepository,
+  passwordEntryRepository: PasswordEntryRepository
+): MasterPasswordChanger {
+  const hashingService = createHashingService();
+  const encryptionService = createPasswordEncryptionService();
+
+  return new MasterPasswordChanger(
+    userRepository,
+    passwordEntryRepository,
+    hashingService,
+    encryptionService
+  );
 }
 
 /**

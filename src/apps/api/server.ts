@@ -31,6 +31,8 @@ import {
   createLoginUserController,
   createLogoutUserController,
   createRefreshSessionController,
+  createChangeMasterPasswordController,
+  createPasswordEntryRepository,
 } from '../../Contexts/Authentication/Users/infrastructure/dependencies';
 import { InMemoryUserRepository } from '../../../tests/Contexts/Authentication/Users/infrastructure/InMemoryUserRepository';
 
@@ -108,6 +110,23 @@ function createApp(): Application {
    */
   const userRepository = new InMemoryUserRepository();
 
+  /**
+   * Password Entry Repository - Secondary Adapter (Cross-Context)
+   *
+   * Current: InMemoryPasswordEntryRepository (for development/testing)
+   * Future: Replace with implementation that accesses PasswordVault context
+   *
+   * This is a cross-context integration point that allows Authentication
+   * context to coordinate password entry re-encryption with PasswordVault context.
+   *
+   * Example for production:
+   * ```typescript
+   * import { PasswordVaultPasswordEntryRepository } from '../../Contexts/Authentication/Users/infrastructure/PasswordVaultPasswordEntryRepository';
+   * const passwordEntryRepository = new PasswordVaultPasswordEntryRepository(dataSource);
+   * ```
+   */
+  const passwordEntryRepository = createPasswordEntryRepository();
+
   // ============================================================================
   // Dependency Injection - Create Controllers
   // ============================================================================
@@ -123,6 +142,10 @@ function createApp(): Application {
   const loginController = createLoginUserController(userRepository);
   const logoutController = createLogoutUserController();
   const refreshController = createRefreshSessionController();
+  const changePasswordController = createChangeMasterPasswordController(
+    userRepository,
+    passwordEntryRepository
+  );
 
   // ============================================================================
   // Route Registration
@@ -152,8 +175,14 @@ function createApp(): Application {
    * - POST /auth/login - User login
    * - POST /auth/logout - User logout
    * - POST /auth/refresh - Refresh session
+   * - PUT /auth/password - Change master password
    */
-  const authRouter = createAuthRoutes(loginController, logoutController, refreshController);
+  const authRouter = createAuthRoutes(
+    loginController,
+    logoutController,
+    refreshController,
+    changePasswordController
+  );
   app.use('/auth', authRouter);
 
   /**
@@ -221,6 +250,7 @@ async function startServer(): Promise<void> {
       console.log(`  POST http://localhost:${CONFIG.PORT}/auth/login`);
       console.log(`  POST http://localhost:${CONFIG.PORT}/auth/logout`);
       console.log(`  POST http://localhost:${CONFIG.PORT}/auth/refresh`);
+      console.log(`  PUT  http://localhost:${CONFIG.PORT}/auth/password`);
       console.log('='.repeat(60));
       console.log('Server is ready to accept connections');
       console.log('Press Ctrl+C to stop the server');
