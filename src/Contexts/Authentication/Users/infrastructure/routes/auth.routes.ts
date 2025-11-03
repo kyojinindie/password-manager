@@ -1,4 +1,5 @@
 import { Router } from 'express';
+import { RegisterUserController } from '../controllers/RegisterUserController';
 import { LoginUserController } from '../controllers/LoginUserController';
 import { LogoutUserController } from '../controllers/LogoutUserController';
 import { RefreshSessionController } from '../controllers/RefreshSessionController';
@@ -17,15 +18,18 @@ import { ChangeMasterPasswordController } from '../controllers/ChangeMasterPassw
  * - No business logic here - only routing configuration
  *
  * Route Design:
+ * - POST /auth/register - Register new user with email, username, and password
  * - POST /auth/login - Login user with email and password
  * - POST /auth/logout - Logout user and invalidate tokens
  * - POST /auth/refresh - Refresh session with refresh token
+ * - PUT /auth/password - Change user's master password
  * - Future routes: /auth/forgot-password, /auth/verify-email, etc.
  */
 
 /**
  * Creates the authentication router with all dependencies injected
  *
+ * @param registerController - Fully configured RegisterUserController with all dependencies
  * @param loginController - Fully configured LoginUserController with all dependencies
  * @param logoutController - Fully configured LogoutUserController with all dependencies
  * @param refreshController - Fully configured RefreshSessionController with all dependencies
@@ -36,28 +40,74 @@ import { ChangeMasterPasswordController } from '../controllers/ChangeMasterPassw
  * ```typescript
  * import { createAuthRoutes } from './routes/auth.routes';
  * import {
+ *   createRegisterUserController,
  *   createLoginUserController,
  *   createLogoutUserController,
  *   createRefreshSessionController,
  *   createChangeMasterPasswordController
  * } from './dependencies';
  *
+ * const registerController = createRegisterUserController(userRepository);
  * const loginController = createLoginUserController(userRepository);
  * const logoutController = createLogoutUserController();
  * const refreshController = createRefreshSessionController();
  * const changePasswordController = createChangeMasterPasswordController(userRepository, passwordEntryRepository);
- * const authRouter = createAuthRoutes(loginController, logoutController, refreshController, changePasswordController);
+ * const authRouter = createAuthRoutes(registerController, loginController, logoutController, refreshController, changePasswordController);
  *
  * app.use('/auth', authRouter);
  * ```
  */
 export function createAuthRoutes(
+  registerController: RegisterUserController,
   loginController: LoginUserController,
   logoutController: LogoutUserController,
   refreshController: RefreshSessionController,
   changePasswordController: ChangeMasterPasswordController
 ): Router {
   const router = Router();
+
+  /**
+   * POST /auth/register
+   *
+   * Register a new user with email, username, and master password
+   *
+   * Request body:
+   * {
+   *   "email": "user@example.com",
+   *   "username": "johndoe",
+   *   "masterPassword": "SecurePass123!@#"
+   * }
+   *
+   * Success Response (201 Created):
+   * {
+   *   "userId": "uuid",
+   *   "message": "User registered successfully"
+   * }
+   *
+   * Error Responses:
+   * - 400 Bad Request: Missing fields, invalid format, or weak password
+   *   Examples:
+   *   - Missing required field (email, username, or masterPassword)
+   *   - Invalid email format
+   *   - Password too short or missing complexity requirements
+   *   - Username too short (< 3 chars) or too long (> 50 chars)
+   *
+   * - 409 Conflict: Email or username already exists
+   *   Examples:
+   *   - User with this email already exists
+   *   - User with this username already exists
+   *
+   * - 500 Internal Server Error: Unexpected error
+   *
+   * Security Notes:
+   * - Password complexity is enforced (12+ chars, uppercase, lowercase, number, special char)
+   * - Password is hashed with bcrypt before storage (never stored in plaintext)
+   * - Email and username uniqueness is verified
+   * - Email is normalized to lowercase and trimmed
+   */
+  router.post('/register', (req, res) => {
+    void registerController.run(req, res);
+  });
 
   /**
    * POST /auth/login

@@ -20,10 +20,12 @@
  * - Single Responsibility: Each class has one reason to change
  */
 
+import { UserRegister } from '../application/Register/UserRegister';
 import { UserLogin } from '../application/Login/UserLogin';
 import { UserLogout } from '../application/Logout/UserLogout';
 import { SessionRefresher } from '../application/RefreshSession/SessionRefresher';
 import { MasterPasswordChanger } from '../application/ChangeMasterPassword/MasterPasswordChanger';
+import { RegisterUserController } from './controllers/RegisterUserController';
 import { LoginUserController } from './controllers/LoginUserController';
 import { LogoutUserController } from './controllers/LogoutUserController';
 import { RefreshSessionController } from './controllers/RefreshSessionController';
@@ -91,6 +93,52 @@ export function createTokenGenerationService(): JwtTokenGenerationService {
  */
 export function createHashingService(): MasterPasswordHashingService {
   return new MasterPasswordHashingService();
+}
+
+/**
+ * Creates and wires all dependencies for the Register feature
+ *
+ * Dependency Graph:
+ * ```
+ * RegisterUserController
+ *   └─> UserRegister (use case)
+ *       ├─> UserRepository (port - needs implementation)
+ *       └─> MasterPasswordHashingService
+ * ```
+ *
+ * @param userRepository - Concrete repository implementation (e.g., TypeOrmUserRepository, MongoUserRepository)
+ * @returns Configured RegisterUserController ready to handle HTTP requests
+ *
+ * Notes:
+ * - Register is simpler than Login (no token generation)
+ * - Uses MasterPasswordHashingService for password hashing
+ * - Validates email format, username length, and password complexity
+ * - Checks uniqueness of email and username via repository
+ */
+export function createRegisterUserController(
+  userRepository: UserRepository
+): RegisterUserController {
+  // Step 1: Create domain services
+  const hashingService = createHashingService();
+
+  // Step 2: Create application service (Use Case) with all dependencies
+  const userRegister = new UserRegister(userRepository, hashingService);
+
+  // Step 3: Create controller (Primary Adapter) with use case
+  const registerController = new RegisterUserController(userRegister);
+
+  return registerController;
+}
+
+/**
+ * Creates the UserRegister use case with all dependencies
+ *
+ * @param userRepository - User repository implementation
+ * @returns UserRegister instance configured with hashing service
+ */
+export function createUserRegisterUseCase(userRepository: UserRepository): UserRegister {
+  const hashingService = createHashingService();
+  return new UserRegister(userRepository, hashingService);
 }
 
 /**
