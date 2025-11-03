@@ -28,6 +28,7 @@ import express, { Application } from 'express';
 import dotenv from 'dotenv';
 import { createAuthRoutes } from '../../Contexts/Authentication/Users/infrastructure/routes/auth.routes';
 import {
+  createRegisterUserController,
   createLoginUserController,
   createLogoutUserController,
   createRefreshSessionController,
@@ -139,6 +140,7 @@ function createApp(): Application {
    * - Injecting dependencies in the correct order
    * - Ensuring proper configuration from environment
    */
+  const registerController = createRegisterUserController(userRepository);
   const loginController = createLoginUserController(userRepository);
   const logoutController = createLogoutUserController();
   const refreshController = createRefreshSessionController();
@@ -172,12 +174,14 @@ function createApp(): Application {
    * Authentication Routes
    *
    * Registers all authentication-related endpoints:
+   * - POST /auth/register - User registration
    * - POST /auth/login - User login
    * - POST /auth/logout - User logout
    * - POST /auth/refresh - Refresh session
    * - PUT /auth/password - Change master password
    */
   const authRouter = createAuthRoutes(
+    registerController,
     loginController,
     logoutController,
     refreshController,
@@ -247,6 +251,7 @@ async function startServer(): Promise<void> {
       console.log(`Health Check: http://localhost:${CONFIG.PORT}/health`);
       console.log('='.repeat(60));
       console.log('Available Endpoints:');
+      console.log(`  POST http://localhost:${CONFIG.PORT}/auth/register`);
       console.log(`  POST http://localhost:${CONFIG.PORT}/auth/login`);
       console.log(`  POST http://localhost:${CONFIG.PORT}/auth/logout`);
       console.log(`  POST http://localhost:${CONFIG.PORT}/auth/refresh`);
