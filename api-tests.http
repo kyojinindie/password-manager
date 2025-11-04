@@ -1,0 +1,711 @@
+###############################################################################
+# Password Manager API - HTTP Test Collection
+#
+# Feature: Create Password Entry (F7)
+#
+# This file contains HTTP requests to test the complete workflow:
+# 1. Register a new user
+# 2. Login to get JWT token
+# 3. Create password entries with authentication
+# 4. Test various validation scenarios
+#
+# Requirements:
+# - VS Code with REST Client extension, or
+# - IntelliJ IDEA HTTP Client, or
+# - curl commands (see bottom of file)
+#
+# Instructions:
+# 1. Start the server: npm run dev
+# 2. Click "Send Request" above each request
+# 3. Variables are defined at the top
+# 4. JWT token is automatically captured from login response
+###############################################################################
+
+###############################################################################
+# VARIABLES
+###############################################################################
+
+@baseUrl = http://localhost:3000
+@email = test-user-{{$timestamp}}@example.com
+@masterPassword = SuperSecure123!Pass
+@newMasterPassword = NewSecure456!Pass
+
+# This variable will be set automatically after login
+# @accessToken = <will be captured from login response>
+
+###############################################################################
+# HEALTH CHECK
+###############################################################################
+
+### 1. Check server is running
+GET {{baseUrl}}/health
+Content-Type: application/json
+
+###############################################################################
+# AUTHENTICATION FLOW
+###############################################################################
+
+### 2. Register a new user
+# @name register
+POST {{baseUrl}}/auth/register
+Content-Type: application/json
+
+{
+  "email": "{{email}}",
+  "masterPassword": "{{masterPassword}}"
+}
+
+###
+# Expected Response (201 Created):
+# {
+#   "message": "User registered successfully",
+#   "userId": "uuid",
+#   "email": "test-user-xxx@example.com"
+# }
+
+### 3. Login with registered user
+# @name login
+POST {{baseUrl}}/auth/login
+Content-Type: application/json
+
+{
+  "email": "{{email}}",
+  "masterPassword": "{{masterPassword}}"
+}
+
+###
+# Expected Response (200 OK):
+# {
+#   "accessToken": "jwt-token",
+#   "refreshToken": "refresh-token",
+#   "userId": "uuid",
+#   "expiresIn": 900
+# }
+
+### Capture access token from login response
+@accessToken = {{login.response.body.accessToken}}
+
+###############################################################################
+# PASSWORD ENTRY CREATION - SUCCESS CASES
+###############################################################################
+
+### 4. Create password entry - Minimal required fields
+# @name createPasswordMinimal
+POST {{baseUrl}}/api/passwords
+Authorization: Bearer {{accessToken}}
+Content-Type: application/json
+
+{
+  "siteName": "GitHub",
+  "username": "johndoe",
+  "password": "MyGitHubPassword123!",
+  "category": "WORK"
+}
+
+###
+# Expected Response (201 Created):
+# {
+#   "id": "uuid",
+#   "siteName": "GitHub",
+#   "siteUrl": null,
+#   "username": "johndoe",
+#   "category": "WORK",
+#   "notes": null,
+#   "tags": [],
+#   "createdAt": "2024-01-15T10:30:00.000Z",
+#   "updatedAt": "2024-01-15T10:30:00.000Z"
+# }
+# Note: password is NOT returned (security)
+
+### 5. Create password entry - All fields
+# @name createPasswordComplete
+POST {{baseUrl}}/api/passwords
+Authorization: Bearer {{accessToken}}
+Content-Type: application/json
+
+{
+  "siteName": "Gmail - Personal Account",
+  "siteUrl": "https://mail.google.com",
+  "username": "john.doe.personal@gmail.com",
+  "password": "VerySecurePassword456!",
+  "category": "PERSONAL",
+  "notes": "My main personal email account. 2FA enabled with Google Authenticator.",
+  "tags": ["important", "2fa-enabled", "primary-email"]
+}
+
+###
+# Expected Response (201 Created):
+# {
+#   "id": "uuid",
+#   "siteName": "Gmail - Personal Account",
+#   "siteUrl": "https://mail.google.com",
+#   "username": "john.doe.personal@gmail.com",
+#   "category": "PERSONAL",
+#   "notes": "My main personal email account. 2FA enabled with Google Authenticator.",
+#   "tags": ["important", "2fa-enabled", "primary-email"],
+#   "createdAt": "2024-01-15T10:31:00.000Z",
+#   "updatedAt": "2024-01-15T10:31:00.000Z"
+# }
+
+### 6. Create password entry - WORK category
+POST {{baseUrl}}/api/passwords
+Authorization: Bearer {{accessToken}}
+Content-Type: application/json
+
+{
+  "siteName": "Company VPN",
+  "siteUrl": "https://vpn.company.com",
+  "username": "john.doe",
+  "password": "WorkVPN2024!Secure",
+  "category": "WORK",
+  "notes": "Corporate VPN access. Required for remote work.",
+  "tags": ["vpn", "required", "work-critical"]
+}
+
+### 7. Create password entry - SOCIAL category
+POST {{baseUrl}}/api/passwords
+Authorization: Bearer {{accessToken}}
+Content-Type: application/json
+
+{
+  "siteName": "Twitter",
+  "siteUrl": "https://twitter.com",
+  "username": "@johndoe",
+  "password": "TwitterPass123!",
+  "category": "SOCIAL",
+  "notes": "Personal Twitter account",
+  "tags": ["social-media", "public"]
+}
+
+### 8. Create password entry - FINANCIAL category
+POST {{baseUrl}}/api/passwords
+Authorization: Bearer {{accessToken}}
+Content-Type: application/json
+
+{
+  "siteName": "Bank of America",
+  "siteUrl": "https://www.bankofamerica.com",
+  "username": "johndoe123",
+  "password": "BankSecure789!@#",
+  "category": "FINANCIAL",
+  "notes": "Main checking account. Customer number: 123456789",
+  "tags": ["banking", "critical", "2fa-enabled"]
+}
+
+### 9. Create password entry - OTHER category
+POST {{baseUrl}}/api/passwords
+Authorization: Bearer {{accessToken}}
+Content-Type: application/json
+
+{
+  "siteName": "Home Router Admin",
+  "siteUrl": "http://192.168.1.1",
+  "username": "admin",
+  "password": "RouterAdmin2024!",
+  "category": "OTHER",
+  "notes": "Home WiFi router admin panel",
+  "tags": ["home", "network", "iot"]
+}
+
+###############################################################################
+# PASSWORD ENTRY CREATION - VALIDATION ERRORS (400 Bad Request)
+###############################################################################
+
+### 10. Error: Missing siteName
+POST {{baseUrl}}/api/passwords
+Authorization: Bearer {{accessToken}}
+Content-Type: application/json
+
+{
+  "username": "test",
+  "password": "test123",
+  "category": "PERSONAL"
+}
+
+###
+# Expected Response (400 Bad Request):
+# {
+#   "error": "Bad Request",
+#   "message": "Site name is required"
+# }
+
+### 11. Error: Missing username
+POST {{baseUrl}}/api/passwords
+Authorization: Bearer {{accessToken}}
+Content-Type: application/json
+
+{
+  "siteName": "Test Site",
+  "password": "test123",
+  "category": "PERSONAL"
+}
+
+###
+# Expected Response (400 Bad Request):
+# {
+#   "error": "Bad Request",
+#   "message": "Username is required"
+# }
+
+### 12. Error: Missing password
+POST {{baseUrl}}/api/passwords
+Authorization: Bearer {{accessToken}}
+Content-Type: application/json
+
+{
+  "siteName": "Test Site",
+  "username": "test",
+  "category": "PERSONAL"
+}
+
+###
+# Expected Response (400 Bad Request):
+# {
+#   "error": "Bad Request",
+#   "message": "Password is required"
+# }
+
+### 13. Error: Missing category
+POST {{baseUrl}}/api/passwords
+Authorization: Bearer {{accessToken}}
+Content-Type: application/json
+
+{
+  "siteName": "Test Site",
+  "username": "test",
+  "password": "test123"
+}
+
+###
+# Expected Response (400 Bad Request):
+# {
+#   "error": "Bad Request",
+#   "message": "Category is required"
+# }
+
+### 14. Error: Empty siteName
+POST {{baseUrl}}/api/passwords
+Authorization: Bearer {{accessToken}}
+Content-Type: application/json
+
+{
+  "siteName": "   ",
+  "username": "test",
+  "password": "test123",
+  "category": "PERSONAL"
+}
+
+###
+# Expected Response (400 Bad Request):
+# {
+#   "error": "Bad Request",
+#   "message": "Site name cannot be empty"
+# }
+
+### 15. Error: Site name too long (> 100 characters)
+POST {{baseUrl}}/api/passwords
+Authorization: Bearer {{accessToken}}
+Content-Type: application/json
+
+{
+  "siteName": "This is an extremely long site name that exceeds the maximum allowed length of 100 characters and should be rejected",
+  "username": "test",
+  "password": "test123",
+  "category": "PERSONAL"
+}
+
+###
+# Expected Response (400 Bad Request):
+# {
+#   "error": "Bad Request",
+#   "message": "Site name must be between 1 and 100 characters"
+# }
+
+### 16. Error: Invalid category value
+POST {{baseUrl}}/api/passwords
+Authorization: Bearer {{accessToken}}
+Content-Type: application/json
+
+{
+  "siteName": "Test Site",
+  "username": "test",
+  "password": "test123",
+  "category": "INVALID_CATEGORY"
+}
+
+###
+# Expected Response (400 Bad Request):
+# {
+#   "error": "Bad Request",
+#   "message": "Invalid category: INVALID_CATEGORY. Must be one of: PERSONAL, WORK, SOCIAL, FINANCIAL, OTHER"
+# }
+
+### 17. Error: Invalid siteUrl format
+POST {{baseUrl}}/api/passwords
+Authorization: Bearer {{accessToken}}
+Content-Type: application/json
+
+{
+  "siteName": "Test Site",
+  "siteUrl": "not-a-valid-url",
+  "username": "test",
+  "password": "test123",
+  "category": "PERSONAL"
+}
+
+###
+# Expected Response (400 Bad Request):
+# {
+#   "error": "Bad Request",
+#   "message": "Invalid URL format for site URL"
+# }
+
+### 18. Error: Notes too long (> 1000 characters)
+POST {{baseUrl}}/api/passwords
+Authorization: Bearer {{accessToken}}
+Content-Type: application/json
+
+{
+  "siteName": "Test Site",
+  "username": "test",
+  "password": "test123",
+  "category": "PERSONAL",
+  "notes": "Lorem ipsum dolor sit amet, consectetur adipiscing elit. Sed do eiusmod tempor incididunt ut labore et dolore magna aliqua. Ut enim ad minim veniam, quis nostrud exercitation ullamco laboris nisi ut aliquip ex ea commodo consequat. Duis aute irure dolor in reprehenderit in voluptate velit esse cillum dolore eu fugiat nulla pariatur. Excepteur sint occaecat cupidatat non proident, sunt in culpa qui officia deserunt mollit anim id est laborum. Lorem ipsum dolor sit amet, consectetur adipiscing elit. Sed do eiusmod tempor incididunt ut labore et dolore magna aliqua. Ut enim ad minim veniam, quis nostrud exercitation ullamco laboris nisi ut aliquip ex ea commodo consequat. Duis aute irure dolor in reprehenderit in voluptate velit esse cillum dolore eu fugiat nulla pariatur. Excepteur sint occaecat cupidatat non proident, sunt in culpa qui officia deserunt mollit anim id est laborum. Lorem ipsum dolor sit amet, consectetur adipiscing elit. Sed do eiusmod tempor incididunt ut labore et dolore magna aliqua. Ut enim ad minim veniam, quis nostrud exercitation ullamco laboris nisi ut aliquip ex ea commodo consequat."
+}
+
+###
+# Expected Response (400 Bad Request):
+# {
+#   "error": "Bad Request",
+#   "message": "Notes exceed maximum length of 1000 characters"
+# }
+
+### 19. Error: Username too long (> 100 characters)
+POST {{baseUrl}}/api/passwords
+Authorization: Bearer {{accessToken}}
+Content-Type: application/json
+
+{
+  "siteName": "Test Site",
+  "username": "this_is_an_extremely_long_username_that_exceeds_the_maximum_allowed_length_of_100_characters_and_should_be_rejected_by_validation",
+  "password": "test123",
+  "category": "PERSONAL"
+}
+
+###
+# Expected Response (400 Bad Request):
+# {
+#   "error": "Bad Request",
+#   "message": "Username must be between 1 and 100 characters"
+# }
+
+### 20. Error: Invalid tags type (not array)
+POST {{baseUrl}}/api/passwords
+Authorization: Bearer {{accessToken}}
+Content-Type: application/json
+
+{
+  "siteName": "Test Site",
+  "username": "test",
+  "password": "test123",
+  "category": "PERSONAL",
+  "tags": "not-an-array"
+}
+
+###
+# Expected Response (400 Bad Request):
+# {
+#   "error": "Bad Request",
+#   "message": "Tags must be an array"
+# }
+
+### 21. Error: Tag too long (> 50 characters)
+POST {{baseUrl}}/api/passwords
+Authorization: Bearer {{accessToken}}
+Content-Type: application/json
+
+{
+  "siteName": "Test Site",
+  "username": "test",
+  "password": "test123",
+  "category": "PERSONAL",
+  "tags": ["this-is-an-extremely-long-tag-that-exceeds-the-maximum-length"]
+}
+
+###
+# Expected Response (400 Bad Request):
+# {
+#   "error": "Bad Request",
+#   "message": "Tag must be between 1 and 50 characters"
+# }
+
+### 22. Error: Empty tag
+POST {{baseUrl}}/api/passwords
+Authorization: Bearer {{accessToken}}
+Content-Type: application/json
+
+{
+  "siteName": "Test Site",
+  "username": "test",
+  "password": "test123",
+  "category": "PERSONAL",
+  "tags": ["valid-tag", ""]
+}
+
+###
+# Expected Response (400 Bad Request):
+# {
+#   "error": "Bad Request",
+#   "message": "Tag cannot be empty"
+# }
+
+### 23. Error: Duplicate tags
+POST {{baseUrl}}/api/passwords
+Authorization: Bearer {{accessToken}}
+Content-Type: application/json
+
+{
+  "siteName": "Test Site",
+  "username": "test",
+  "password": "test123",
+  "category": "PERSONAL",
+  "tags": ["important", "work", "important"]
+}
+
+###
+# Expected Response (400 Bad Request):
+# {
+#   "error": "Bad Request",
+#   "message": "Tags must be unique"
+# }
+
+###############################################################################
+# AUTHENTICATION ERRORS (401 Unauthorized)
+###############################################################################
+
+### 24. Error: Missing authentication token
+POST {{baseUrl}}/api/passwords
+Content-Type: application/json
+
+{
+  "siteName": "Test Site",
+  "username": "test",
+  "password": "test123",
+  "category": "PERSONAL"
+}
+
+###
+# Expected Response (401 Unauthorized):
+# {
+#   "error": "Unauthorized",
+#   "message": "Missing authentication token. Please provide a valid access token."
+# }
+
+### 25. Error: Invalid authentication token
+POST {{baseUrl}}/api/passwords
+Authorization: Bearer invalid-token-here
+Content-Type: application/json
+
+{
+  "siteName": "Test Site",
+  "username": "test",
+  "password": "test123",
+  "category": "PERSONAL"
+}
+
+###
+# Expected Response (401 Unauthorized):
+# {
+#   "error": "Unauthorized",
+#   "message": "Invalid authentication token."
+# }
+
+### 26. Error: Malformed authorization header
+POST {{baseUrl}}/api/passwords
+Authorization: InvalidFormat token-here
+Content-Type: application/json
+
+{
+  "siteName": "Test Site",
+  "username": "test",
+  "password": "test123",
+  "category": "PERSONAL"
+}
+
+###
+# Expected Response (401 Unauthorized):
+# {
+#   "error": "Unauthorized",
+#   "message": "Invalid authentication format. Expected \"Bearer <token>\"."
+# }
+
+###############################################################################
+# EDGE CASES
+###############################################################################
+
+### 27. Edge case: Optional siteUrl omitted (should work)
+POST {{baseUrl}}/api/passwords
+Authorization: Bearer {{accessToken}}
+Content-Type: application/json
+
+{
+  "siteName": "Local App",
+  "username": "admin",
+  "password": "LocalApp123!",
+  "category": "OTHER"
+}
+
+###
+# Expected Response (201 Created):
+# siteUrl should be null or undefined
+
+### 28. Edge case: Optional notes omitted (should work)
+POST {{baseUrl}}/api/passwords
+Authorization: Bearer {{accessToken}}
+Content-Type: application/json
+
+{
+  "siteName": "Quick Entry",
+  "username": "user",
+  "password": "QuickPass123!",
+  "category": "OTHER"
+}
+
+###
+# Expected Response (201 Created):
+# notes should be null or undefined
+
+### 29. Edge case: Optional tags omitted (should work)
+POST {{baseUrl}}/api/passwords
+Authorization: Bearer {{accessToken}}
+Content-Type: application/json
+
+{
+  "siteName": "Simple Entry",
+  "username": "user",
+  "password": "SimplePass123!",
+  "category": "OTHER"
+}
+
+###
+# Expected Response (201 Created):
+# tags should be empty array
+
+### 30. Edge case: Empty tags array (should work)
+POST {{baseUrl}}/api/passwords
+Authorization: Bearer {{accessToken}}
+Content-Type: application/json
+
+{
+  "siteName": "No Tags Entry",
+  "username": "user",
+  "password": "NoTags123!",
+  "category": "OTHER",
+  "tags": []
+}
+
+###
+# Expected Response (201 Created):
+# tags should be empty array
+
+### 31. Edge case: Site name at maximum length (100 chars - should work)
+POST {{baseUrl}}/api/passwords
+Authorization: Bearer {{accessToken}}
+Content-Type: application/json
+
+{
+  "siteName": "1234567890123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890",
+  "username": "user",
+  "password": "MaxLength123!",
+  "category": "OTHER"
+}
+
+###
+# Expected Response (201 Created):
+# Should accept exactly 100 characters
+
+### 32. Edge case: Username at maximum length (100 chars - should work)
+POST {{baseUrl}}/api/passwords
+Authorization: Bearer {{accessToken}}
+Content-Type: application/json
+
+{
+  "siteName": "Max Username Site",
+  "username": "1234567890123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890",
+  "password": "MaxUser123!",
+  "category": "OTHER"
+}
+
+###
+# Expected Response (201 Created):
+# Should accept exactly 100 characters
+
+### 33. Edge case: Notes at maximum length (1000 chars - should work)
+POST {{baseUrl}}/api/passwords
+Authorization: Bearer {{accessToken}}
+Content-Type: application/json
+
+{
+  "siteName": "Max Notes Site",
+  "username": "user",
+  "password": "MaxNotes123!",
+  "category": "OTHER",
+  "notes": "Lorem ipsum dolor sit amet, consectetur adipiscing elit. Sed do eiusmod tempor incididunt ut labore et dolore magna aliqua. Ut enim ad minim veniam, quis nostrud exercitation ullamco laboris nisi ut aliquip ex ea commodo consequat. Duis aute irure dolor in reprehenderit in voluptate velit esse cillum dolore eu fugiat nulla pariatur. Excepteur sint occaecat cupidatat non proident, sunt in culpa qui officia deserunt mollit anim id est laborum. Lorem ipsum dolor sit amet, consectetur adipiscing elit. Sed do eiusmod tempor incididunt ut labore et dolore magna aliqua. Ut enim ad minim veniam, quis nostrud exercitation ullamco laboris nisi ut aliquip ex ea commodo consequat. Duis aute irure dolor in reprehenderit in voluptate velit esse cillum dolore eu fugiat nulla pariatur. Excepteur sint occaecat cupidatat non proident, sunt in culpa qui officia deserunt mollit anim id est laborum. Lorem ipsum dolor sit amet, consectetur adipiscing elit. Sed do eiusmod tempor incididunt"
+}
+
+###
+# Expected Response (201 Created):
+# Should accept exactly 1000 characters
+
+###############################################################################
+# CURL COMMANDS (Alternative to REST Client)
+###############################################################################
+
+# If you prefer curl, here are equivalent commands:
+
+# 1. Health check
+# curl -X GET http://localhost:3000/health
+
+# 2. Register user
+# curl -X POST http://localhost:3000/auth/register \
+#   -H "Content-Type: application/json" \
+#   -d '{"email":"test@example.com","masterPassword":"SuperSecure123!Pass"}'
+
+# 3. Login
+# curl -X POST http://localhost:3000/auth/login \
+#   -H "Content-Type: application/json" \
+#   -d '{"email":"test@example.com","masterPassword":"SuperSecure123!Pass"}'
+
+# 4. Create password entry (replace TOKEN with actual token from login)
+# curl -X POST http://localhost:3000/api/passwords \
+#   -H "Content-Type: application/json" \
+#   -H "Authorization: Bearer TOKEN" \
+#   -d '{"siteName":"GitHub","username":"johndoe","password":"MyPass123!","category":"WORK"}'
+
+###############################################################################
+# TEST SUMMARY
+###############################################################################
+#
+# Success Cases (201 Created): Tests 4-9, 27-33
+# - Minimal required fields
+# - All optional fields included
+# - All category types (PERSONAL, WORK, SOCIAL, FINANCIAL, OTHER)
+# - Edge cases (max lengths, optional fields omitted)
+#
+# Validation Errors (400 Bad Request): Tests 10-23
+# - Missing required fields (siteName, username, password, category)
+# - Empty fields
+# - Fields too long
+# - Invalid category
+# - Invalid URL format
+# - Notes too long
+# - Invalid tags
+#
+# Authentication Errors (401 Unauthorized): Tests 24-26
+# - Missing token
+# - Invalid token
+# - Malformed authorization header
+#
+# Total Tests: 33
+#
+###############################################################################
