@@ -490,9 +490,7 @@ describe('User', () => {
 
       const updatedUser = user.changeMasterPassword(newHash, newSalt);
 
-      expect(updatedUser.failedLoginAttempts.equals(user.failedLoginAttempts)).toBe(
-        true
-      );
+      expect(updatedUser.failedLoginAttempts.equals(user.failedLoginAttempts)).toBe(true);
       expect(updatedUser.failedLoginAttempts.value).toBe(4);
     });
 

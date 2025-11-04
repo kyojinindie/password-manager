@@ -239,7 +239,7 @@ export class RegisterUserController {
       'Master Password must contain at least one special character',
     ];
 
-    const isValidationError = validationErrors.some((errorPattern) =>
+    const isValidationError = validationErrors.some(errorPattern =>
       errorMessage.includes(errorPattern)
     );
 
@@ -260,7 +260,7 @@ export class RegisterUserController {
       'User with this username already exists',
     ];
 
-    const isUniquenessError = uniquenessErrors.some((errorPattern) =>
+    const isUniquenessError = uniquenessErrors.some(errorPattern =>
       errorMessage.includes(errorPattern)
     );
 

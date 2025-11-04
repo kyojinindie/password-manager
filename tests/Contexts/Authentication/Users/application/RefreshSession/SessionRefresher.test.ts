@@ -189,7 +189,9 @@ describe('SessionRefresher', () => {
       };
 
       // Act & Assert
-      await expect(sessionRefresher.run(request)).rejects.toThrow(InvalidRefreshTokenException);
+      await expect(sessionRefresher.run(request)).rejects.toThrow(
+        InvalidRefreshTokenException
+      );
       await expect(sessionRefresher.run(request)).rejects.toThrow(
         'The provided refresh token is invalid, expired, or has been revoked'
       );
@@ -215,7 +217,9 @@ describe('SessionRefresher', () => {
 
       // Assert - token verification should not be called if blacklisted
       expect(tokenService.getVerifyRefreshTokenCalls().length).toBe(0);
-      expect(blacklistService.getIsRefreshTokenBlacklistedCalls().length).toBeGreaterThan(0);
+      expect(blacklistService.getIsRefreshTokenBlacklistedCalls().length).toBeGreaterThan(
+        0
+      );
     });
 
     it('should not generate access token when token is blacklisted', async () => {
@@ -254,7 +258,9 @@ describe('SessionRefresher', () => {
       };
 
       // Act & Assert
-      await expect(sessionRefresher.run(request)).rejects.toThrow(InvalidRefreshTokenException);
+      await expect(sessionRefresher.run(request)).rejects.toThrow(
+        InvalidRefreshTokenException
+      );
       await expect(sessionRefresher.run(request)).rejects.toThrow(
         'The provided refresh token is invalid, expired, or has been revoked'
       );
@@ -272,7 +278,9 @@ describe('SessionRefresher', () => {
       };
 
       // Act & Assert
-      await expect(sessionRefresher.run(request)).rejects.toThrow(InvalidRefreshTokenException);
+      await expect(sessionRefresher.run(request)).rejects.toThrow(
+        InvalidRefreshTokenException
+      );
     });
 
     it('should not generate access token when verification fails', async () => {
@@ -434,7 +442,9 @@ describe('SessionRefresher', () => {
       await blacklistService.addToBlacklist(undefined, refreshToken);
 
       // Act & Assert - second refresh should fail
-      await expect(sessionRefresher.run(request)).rejects.toThrow(InvalidRefreshTokenException);
+      await expect(sessionRefresher.run(request)).rejects.toThrow(
+        InvalidRefreshTokenException
+      );
     });
   });
 
@@ -450,18 +460,19 @@ describe('SessionRefresher', () => {
       const originalVerify = tokenService.verifyRefreshToken.bind(tokenService);
       const originalGenerate = tokenService.generateAccessToken.bind(tokenService);
 
-      tokenService.verifyRefreshToken = async (token) => {
+      tokenService.verifyRefreshToken = async token => {
         callOrder.push('verify');
         return originalVerify(token);
       };
 
-      tokenService.generateAccessToken = async (id) => {
+      tokenService.generateAccessToken = async id => {
         callOrder.push('generate');
         return originalGenerate(id);
       };
 
-      const originalBlacklistCheck = blacklistService.isRefreshTokenBlacklisted.bind(blacklistService);
-      blacklistService.isRefreshTokenBlacklisted = async (token) => {
+      const originalBlacklistCheck =
+        blacklistService.isRefreshTokenBlacklisted.bind(blacklistService);
+      blacklistService.isRefreshTokenBlacklisted = async token => {
         callOrder.push('blacklist');
         return originalBlacklistCheck(token);
       };
