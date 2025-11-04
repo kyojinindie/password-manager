@@ -35,7 +35,10 @@ import {
   createChangeMasterPasswordController,
   createPasswordEntryRepository,
 } from '../../Contexts/Authentication/Users/infrastructure/dependencies';
-import { InMemoryUserRepository } from '../../../tests/Contexts/Authentication/Users/infrastructure/InMemoryUserRepository';
+import { InMemoryUserRepository } from '../../Contexts/Authentication/Users/infrastructure/InMemoryUserRepository';
+import { createPasswordsRoutes } from '../../Contexts/PasswordVault/Passwords/infrastructure/http/routes/passwords.routes';
+import { createCreatePasswordEntryControllerInMemory } from '../../Contexts/PasswordVault/Passwords/infrastructure/dependencies';
+import { PasswordEncryptionServiceImpl } from '../../Contexts/Authentication/Users/infrastructure/PasswordEncryptionServiceImpl';
 
 /**
  * Load environment variables from .env file
@@ -149,6 +152,22 @@ function createApp(): Application {
     passwordEntryRepository
   );
 
+  /**
+   * Password Entry Controllers - PasswordVault Context
+   *
+   * These controllers handle password vault operations (CRUD for password entries).
+   * Uses in-memory repository for development (no database setup required).
+   *
+   * The PasswordEncryptionServiceImpl is shared between contexts:
+   * - Defined in Authentication context (infrastructure)
+   * - Used by PasswordVault context through an adapter (cross-context integration)
+   * - The adapter translates between Auth and Vault interfaces
+   */
+  const authPasswordEncryptionService = new PasswordEncryptionServiceImpl();
+  const createPasswordEntryController = createCreatePasswordEntryControllerInMemory(
+    authPasswordEncryptionService
+  );
+
   // ============================================================================
   // Route Registration
   // ============================================================================
@@ -162,7 +181,7 @@ function createApp(): Application {
    * - Monitoring systems
    * - Quick verification during development
    */
-  app.get('/health', (req, res) => {
+  app.get('/health', (_req, res) => {
     res.status(200).json({
       status: 'ok',
       timestamp: new Date().toISOString(),
@@ -190,6 +209,22 @@ function createApp(): Application {
   app.use('/auth', authRouter);
 
   /**
+   * Password Vault Routes
+   *
+   * Registers all password vault-related endpoints:
+   * - POST /api/passwords - Create new password entry (requires authentication)
+   *
+   * Future endpoints:
+   * - GET /api/passwords - List all password entries
+   * - GET /api/passwords/:id - Get specific password entry
+   * - PUT /api/passwords/:id - Update password entry
+   * - DELETE /api/passwords/:id - Delete password entry
+   * - POST /api/passwords/:id/decrypt - Decrypt password (with master password verification)
+   */
+  const passwordsRouter = createPasswordsRoutes(createPasswordEntryController);
+  app.use('/api/passwords', passwordsRouter);
+
+  /**
    * Future routes can be added here:
    *
    * Example:
@@ -210,11 +245,11 @@ function createApp(): Application {
    * Catches all requests that don't match any defined routes.
    * Returns a consistent JSON response for unknown endpoints.
    */
-  app.use((req, res) => {
+  app.use((_req, res) => {
     res.status(404).json({
       error: 'Not Found',
-      message: `Cannot ${req.method} ${req.path}`,
-      path: req.path,
+      message: `Cannot ${_req.method} ${_req.path}`,
+      path: _req.path,
     });
   });
 
@@ -232,7 +267,7 @@ function createApp(): Application {
  *
  * @returns Promise that resolves when server is listening
  */
-async function startServer(): Promise<void> {
+function startServer(): void {
   try {
     // Validate critical environment variables
     validateEnvironment();
@@ -241,24 +276,53 @@ async function startServer(): Promise<void> {
     const app = createApp();
 
     // Start HTTP server
+    // eslint-disable-next-line no-console
     app.listen(CONFIG.PORT, () => {
+      // eslint-disable-next-line no-console
       console.log('='.repeat(60));
+      // eslint-disable-next-line no-console
       console.log('🚀 Password Manager API Server');
+      // eslint-disable-next-line no-console
       console.log('='.repeat(60));
+      // eslint-disable-next-line no-console
       console.log(`Environment: ${CONFIG.NODE_ENV}`);
+      // eslint-disable-next-line no-console
       console.log(`Port: ${CONFIG.PORT}`);
+      // eslint-disable-next-line no-console
       console.log(`Server URL: http://localhost:${CONFIG.PORT}`);
+      // eslint-disable-next-line no-console
       console.log(`Health Check: http://localhost:${CONFIG.PORT}/health`);
+      // eslint-disable-next-line no-console
       console.log('='.repeat(60));
+      // eslint-disable-next-line no-console
       console.log('Available Endpoints:');
+      // eslint-disable-next-line no-console
+      console.log('');
+      // eslint-disable-next-line no-console
+      console.log('Authentication:');
+      // eslint-disable-next-line no-console
       console.log(`  POST http://localhost:${CONFIG.PORT}/auth/register`);
+      // eslint-disable-next-line no-console
       console.log(`  POST http://localhost:${CONFIG.PORT}/auth/login`);
+      // eslint-disable-next-line no-console
       console.log(`  POST http://localhost:${CONFIG.PORT}/auth/logout`);
+      // eslint-disable-next-line no-console
       console.log(`  POST http://localhost:${CONFIG.PORT}/auth/refresh`);
+      // eslint-disable-next-line no-console
       console.log(`  PUT  http://localhost:${CONFIG.PORT}/auth/password`);
+      // eslint-disable-next-line no-console
+      console.log('');
+      // eslint-disable-next-line no-console
+      console.log('Password Vault:');
+      // eslint-disable-next-line no-console
+      console.log(`  POST http://localhost:${CONFIG.PORT}/api/passwords (requires auth)`);
+      // eslint-disable-next-line no-console
       console.log('='.repeat(60));
+      // eslint-disable-next-line no-console
       console.log('Server is ready to accept connections');
+      // eslint-disable-next-line no-console
       console.log('Press Ctrl+C to stop the server');
+      // eslint-disable-next-line no-console
       console.log('='.repeat(60));
     });
   } catch (error) {
@@ -278,7 +342,7 @@ async function startServer(): Promise<void> {
  */
 function validateEnvironment(): void {
   const required = ['JWT_SECRET'];
-  const missing = required.filter((key) => !process.env[key]);
+  const missing = required.filter(key => !process.env[key]);
 
   if (missing.length > 0) {
     throw new Error(
@@ -311,6 +375,7 @@ function validateEnvironment(): void {
  */
 function setupGracefulShutdown(): void {
   const shutdown = (signal: string): void => {
+    // eslint-disable-next-line no-console
     console.log(`\n${signal} received. Shutting down gracefully...`);
 
     // Here you would:
@@ -319,6 +384,7 @@ function setupGracefulShutdown(): void {
     // 3. Cancel pending jobs
     // 4. Wait for active requests to complete
 
+    // eslint-disable-next-line no-console
     console.log('Server stopped.');
     process.exit(0);
   };
@@ -347,7 +413,7 @@ process.on('unhandledRejection', (reason, promise) => {
  * Catches any uncaught exceptions to log them before
  * the application crashes.
  */
-process.on('uncaughtException', (error) => {
+process.on('uncaughtException', error => {
   console.error('Uncaught Exception:', error);
   // In production, you should:
   // 1. Log to error tracking service
