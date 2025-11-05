@@ -177,6 +177,122 @@ export class InMemoryPasswordEntryRepository implements PasswordEntryRepository 
   }
 
   /**
+   * Finds password entries belonging to a user with criteria-based filtering,
+   * sorting, and pagination.
+   *
+   * @param userId - The user ID (primitive string)
+   * @param page - Page number (1-based)
+   * @param limit - Number of items per page
+   * @param sortBy - Field to sort by (siteName, createdAt, category)
+   * @param sortOrder - Sort order (asc or desc)
+   * @param category - Optional category filter
+   * @returns Promise<PasswordEntry[]>
+   *
+   * Returns:
+   * - Array of PasswordEntry aggregates matching criteria
+   * - Empty array if no entries found
+   * - Results are filtered, sorted, and paginated
+   *
+   * Implementation Notes:
+   * - Filters by userId (authorization)
+   * - Optionally filters by category
+   * - Sorts in-memory using JavaScript sort
+   * - Applies pagination using slice
+   * - O(n log n) for sorting, acceptable for in-memory
+   *
+   * Performance Considerations:
+   * - In-memory implementation is simple but not scalable
+   * - TypeORM implementation should use database sorting/pagination
+   * - Database is much more efficient for these operations
+   */
+  public async findByUserIdWithCriteria(
+    userId: string,
+    page: number,
+    limit: number,
+    sortBy: string,
+    sortOrder: 'asc' | 'desc',
+    category?: string
+  ): Promise<PasswordEntry[]> {
+    // Step 1: Filter entries by userId
+    let userEntries: PasswordEntry[] = [];
+
+    for (const entry of this.entries.values()) {
+      if (entry.userId === userId) {
+        userEntries.push(entry);
+      }
+    }
+
+    // Step 2: Filter by category if provided
+    if (category) {
+      userEntries = userEntries.filter(entry => {
+        const primitives = entry.toPrimitives();
+        return primitives.category === category;
+      });
+    }
+
+    // Step 3: Sort entries
+    userEntries.sort((a, b) => {
+      const primitivesA = a.toPrimitives();
+      const primitivesB = b.toPrimitives();
+
+      let compareValue = 0;
+
+      if (sortBy === 'siteName') {
+        compareValue = primitivesA.siteName.localeCompare(primitivesB.siteName);
+      } else if (sortBy === 'createdAt') {
+        compareValue = primitivesA.createdAt.getTime() - primitivesB.createdAt.getTime();
+      } else if (sortBy === 'category') {
+        compareValue = primitivesA.category.localeCompare(primitivesB.category);
+      }
+
+      // Apply sort order
+      return sortOrder === 'asc' ? compareValue : -compareValue;
+    });
+
+    // Step 4: Apply pagination
+    const offset = (page - 1) * limit;
+    const paginatedEntries = userEntries.slice(offset, offset + limit);
+
+    return Promise.resolve(paginatedEntries);
+  }
+
+  /**
+   * Counts total password entries belonging to a user
+   *
+   * @param userId - The user ID (primitive string)
+   * @param category - Optional category filter
+   * @returns Promise<number>
+   *
+   * Returns:
+   * - Total count of entries for this user
+   * - Respects category filter if provided
+   *
+   * Implementation Notes:
+   * - Iterates through all entries
+   * - Counts matches based on userId (and category if provided)
+   * - O(n) operation
+   */
+  public async countByUserId(userId: string, category?: string): Promise<number> {
+    let count = 0;
+
+    for (const entry of this.entries.values()) {
+      if (entry.userId === userId) {
+        // If category filter is provided, check it matches
+        if (category) {
+          const primitives = entry.toPrimitives();
+          if (primitives.category === category) {
+            count++;
+          }
+        } else {
+          count++;
+        }
+      }
+    }
+
+    return Promise.resolve(count);
+  }
+
+  /**
    * Deletes a password entry by its ID with ownership verification
    *
    * @param id - The password entry ID (Value Object)
@@ -281,7 +397,10 @@ export class InMemoryPasswordEntryRepository implements PasswordEntryRepository 
   }
 
   /**
-   * Gets the count of password entries for a specific user
+   * Gets the count of password entries for a specific user (synchronous testing helper)
+   *
+   * NOTE: This is a TESTING HELPER, not part of the repository interface.
+   * The repository interface has an async version: countByUserId(userId, category?)
    *
    * Testing use cases:
    * - Verify user's entries were saved
@@ -291,7 +410,7 @@ export class InMemoryPasswordEntryRepository implements PasswordEntryRepository 
    * @param userId - The user ID to count entries for
    * @returns number - Count of entries for this user
    */
-  public countByUserId(userId: string): number {
+  public countByUserIdSync(userId: string): number {
     let count = 0;
     for (const entry of this.entries.values()) {
       if (entry.userId === userId) {

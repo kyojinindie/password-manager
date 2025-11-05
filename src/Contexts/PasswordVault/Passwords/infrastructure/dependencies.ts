@@ -21,10 +21,12 @@
  */
 
 import { PasswordEntryCreator } from '../application/Create/PasswordEntryCreator';
+import { PasswordEntriesLister } from '../application/List/PasswordEntriesLister';
 import { PasswordEntryRepository } from '../domain/PasswordEntryRepository';
 import { PasswordEncryptionService } from '../domain/PasswordEncryptionService';
 import { InMemoryPasswordEntryRepository } from './persistence/InMemoryPasswordEntryRepository';
 import { CreatePasswordEntryController } from './http/controllers/CreatePasswordEntryController';
+import { ListPasswordEntriesController } from './http/controllers/ListPasswordEntriesController';
 import { PasswordEncryptionService as AuthPasswordEncryptionService } from '../../../Authentication/Users/application/ports/PasswordEncryptionService';
 import { createPasswordEncryptionServiceAdapter } from './PasswordEncryptionServiceAdapter';
 
@@ -184,6 +186,70 @@ export function createCreatePasswordEntryControllerInMemory(
  */
 export function createInMemoryPasswordEntryRepository(): PasswordEntryRepository {
   return new InMemoryPasswordEntryRepository();
+}
+
+/**
+ * Creates ListPasswordEntriesController with in-memory repository (for development/testing)
+ *
+ * This factory creates the controller for listing password entries with pagination,
+ * sorting, and filtering capabilities.
+ *
+ * Dependency Graph:
+ * ```
+ * ListPasswordEntriesController
+ *   └─> PasswordEntriesLister (use case)
+ *       └─> PasswordEntryRepository (port)
+ *           └─> InMemoryPasswordEntryRepository (in-memory implementation)
+ * ```
+ *
+ * @returns Configured ListPasswordEntriesController with in-memory persistence
+ *
+ * Example usage:
+ * ```typescript
+ * const listController = createListPasswordEntriesControllerInMemory();
+ * app.get('/api/passwords', authenticateJWT, (req, res) => listController.run(req, res));
+ * ```
+ */
+export function createListPasswordEntriesControllerInMemory(): ListPasswordEntriesController {
+  // Step 1: Create in-memory repository (no database required)
+  const passwordEntryRepository = new InMemoryPasswordEntryRepository();
+
+  // Step 2: Create application service (Use Case) with repository dependency
+  const passwordEntriesLister = new PasswordEntriesLister(passwordEntryRepository);
+
+  // Step 3: Create controller (Primary Adapter) with use case
+  const listController = new ListPasswordEntriesController(passwordEntriesLister);
+
+  return listController;
+}
+
+/**
+ * Alternative: Create ListPasswordEntriesController with shared repository
+ *
+ * This is useful when you want to share the same repository instance across
+ * multiple controllers (e.g., create and list controllers using the same in-memory data).
+ *
+ * @param passwordEntryRepository - Shared repository instance
+ * @returns Configured ListPasswordEntriesController
+ *
+ * Example usage:
+ * ```typescript
+ * const repository = createInMemoryPasswordEntryRepository();
+ * const createController = createCreatePasswordEntryControllerWithRepository(repository, encryptionService);
+ * const listController = createListPasswordEntriesControllerWithRepository(repository);
+ * // Both controllers now share the same in-memory data
+ * ```
+ */
+export function createListPasswordEntriesControllerWithRepository(
+  passwordEntryRepository: PasswordEntryRepository
+): ListPasswordEntriesController {
+  // Step 1: Create application service (Use Case) with repository dependency
+  const passwordEntriesLister = new PasswordEntriesLister(passwordEntryRepository);
+
+  // Step 2: Create controller (Primary Adapter) with use case
+  const listController = new ListPasswordEntriesController(passwordEntriesLister);
+
+  return listController;
 }
 
 /**

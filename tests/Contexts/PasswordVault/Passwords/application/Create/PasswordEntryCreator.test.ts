@@ -28,6 +28,21 @@ class MockPasswordEntryRepository implements PasswordEntryRepository {
     return false;
   }
 
+  public async findByUserIdWithCriteria(
+    _userId: string,
+    _page: number,
+    _limit: number,
+    _sortBy: string,
+    _sortOrder: 'asc' | 'desc',
+    _category?: string
+  ): Promise<PasswordEntry[]> {
+    return [];
+  }
+
+  public async countByUserId(_userId: string, _category?: string): Promise<number> {
+    return 0;
+  }
+
   // Test helper
   public getSavedEntry(): PasswordEntry | null {
     return this.savedEntry;

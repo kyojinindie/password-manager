@@ -39,6 +39,43 @@ export interface PasswordEntryRepository {
   findByUserId(userId: string): Promise<PasswordEntry[]>;
 
   /**
+   * Finds password entries belonging to a user with criteria-based filtering,
+   * sorting, and pagination.
+   *
+   * Business rules enforced:
+   * - Only returns entries belonging to the specified user
+   * - Supports sorting by siteName, createdAt, category
+   * - Supports pagination via limit and offset
+   * - Supports filtering by category
+   *
+   * @param userId - The user ID (primitive string)
+   * @param page - Page number (1-based)
+   * @param limit - Number of items per page
+   * @param sortBy - Field to sort by (siteName, createdAt, category)
+   * @param sortOrder - Sort order (asc or desc)
+   * @param category - Optional category filter
+   * @returns Array of password entries matching the criteria
+   */
+  findByUserIdWithCriteria(
+    userId: string,
+    page: number,
+    limit: number,
+    sortBy: string,
+    sortOrder: 'asc' | 'desc',
+    category?: string
+  ): Promise<PasswordEntry[]>;
+
+  /**
+   * Counts total password entries belonging to a user.
+   * Used for pagination metadata calculations.
+   *
+   * @param userId - The user ID (primitive string)
+   * @param category - Optional category filter
+   * @returns Total count of entries for this user
+   */
+  countByUserId(userId: string, category?: string): Promise<number>;
+
+  /**
    * Deletes a password entry by its ID.
    * This method should verify ownership before deletion (business rule enforcement).
    *

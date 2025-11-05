@@ -37,8 +37,14 @@ import {
 } from '../../Contexts/Authentication/Users/infrastructure/dependencies';
 import { InMemoryUserRepository } from '../../Contexts/Authentication/Users/infrastructure/InMemoryUserRepository';
 import { createPasswordsRoutes } from '../../Contexts/PasswordVault/Passwords/infrastructure/http/routes/passwords.routes';
-import { createCreatePasswordEntryControllerInMemory } from '../../Contexts/PasswordVault/Passwords/infrastructure/dependencies';
+import {
+  createInMemoryPasswordEntryRepository,
+  createListPasswordEntriesControllerWithRepository,
+} from '../../Contexts/PasswordVault/Passwords/infrastructure/dependencies';
 import { PasswordEncryptionServiceImpl } from '../../Contexts/Authentication/Users/infrastructure/PasswordEncryptionServiceImpl';
+import { PasswordEntryCreator } from '../../Contexts/PasswordVault/Passwords/application/Create/PasswordEntryCreator';
+import { CreatePasswordEntryController } from '../../Contexts/PasswordVault/Passwords/infrastructure/http/controllers/CreatePasswordEntryController';
+import { createPasswordEncryptionServiceAdapter } from '../../Contexts/PasswordVault/Passwords/infrastructure/PasswordEncryptionServiceAdapter';
 
 /**
  * Load environment variables from .env file
@@ -158,14 +164,34 @@ function createApp(): Application {
    * These controllers handle password vault operations (CRUD for password entries).
    * Uses in-memory repository for development (no database setup required).
    *
+   * We create a SHARED repository instance so that:
+   * - Create controller saves entries to it
+   * - List controller retrieves entries from it
+   * - Both controllers see the same data (important for in-memory testing)
+   *
    * The PasswordEncryptionServiceImpl is shared between contexts:
    * - Defined in Authentication context (infrastructure)
    * - Used by PasswordVault context through an adapter (cross-context integration)
    * - The adapter translates between Auth and Vault interfaces
    */
   const authPasswordEncryptionService = new PasswordEncryptionServiceImpl();
-  const createPasswordEntryController = createCreatePasswordEntryControllerInMemory(
+  const vaultPasswordEncryptionService = createPasswordEncryptionServiceAdapter(
     authPasswordEncryptionService
+  );
+
+  // Create SHARED in-memory repository
+  const passwordVaultRepository = createInMemoryPasswordEntryRepository();
+
+  // Create controllers using the SHARED repository
+  const passwordEntryCreator = new PasswordEntryCreator(
+    passwordVaultRepository,
+    vaultPasswordEncryptionService
+  );
+  const createPasswordEntryController = new CreatePasswordEntryController(
+    passwordEntryCreator
+  );
+  const listPasswordEntriesController = createListPasswordEntriesControllerWithRepository(
+    passwordVaultRepository
   );
 
   // ============================================================================
@@ -212,16 +238,19 @@ function createApp(): Application {
    * Password Vault Routes
    *
    * Registers all password vault-related endpoints:
+   * - GET /api/passwords - List all password entries (requires authentication)
    * - POST /api/passwords - Create new password entry (requires authentication)
    *
    * Future endpoints:
-   * - GET /api/passwords - List all password entries
    * - GET /api/passwords/:id - Get specific password entry
    * - PUT /api/passwords/:id - Update password entry
    * - DELETE /api/passwords/:id - Delete password entry
    * - POST /api/passwords/:id/decrypt - Decrypt password (with master password verification)
    */
-  const passwordsRouter = createPasswordsRoutes(createPasswordEntryController);
+  const passwordsRouter = createPasswordsRoutes(
+    createPasswordEntryController,
+    listPasswordEntriesController
+  );
   app.use('/api/passwords', passwordsRouter);
 
   /**
@@ -314,6 +343,8 @@ function startServer(): void {
       console.log('');
       // eslint-disable-next-line no-console
       console.log('Password Vault:');
+      // eslint-disable-next-line no-console
+      console.log(`  GET  http://localhost:${CONFIG.PORT}/api/passwords (requires auth)`);
       // eslint-disable-next-line no-console
       console.log(`  POST http://localhost:${CONFIG.PORT}/api/passwords (requires auth)`);
       // eslint-disable-next-line no-console

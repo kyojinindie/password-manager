@@ -176,6 +176,148 @@ export class TypeOrmPasswordEntryRepository implements PasswordEntryRepository {
   }
 
   /**
+   * Finds password entries belonging to a user with criteria-based filtering,
+   * sorting, and pagination.
+   *
+   * Implementation:
+   * 1. Build QueryBuilder with WHERE clause for userId
+   * 2. Add category filter if provided
+   * 3. Add ORDER BY clause based on sortBy and sortOrder
+   * 4. Add LIMIT and OFFSET for pagination
+   * 5. Execute query and map results to domain aggregates
+   *
+   * @param userId - The user ID (primitive string)
+   * @param page - Page number (1-based)
+   * @param limit - Number of items per page
+   * @param sortBy - Field to sort by (siteName, createdAt, category)
+   * @param sortOrder - Sort order (asc or desc)
+   * @param category - Optional category filter
+   * @returns Array of password entry aggregates matching criteria
+   * @throws Database errors (connection, etc.)
+   *
+   * Performance:
+   * - Uses database indexes for efficient filtering and sorting
+   * - Pagination at database level (not in-memory)
+   * - Single query with all criteria
+   * - Much more efficient than in-memory implementation
+   *
+   * SQL Example (for reference):
+   * ```sql
+   * SELECT * FROM password_entries
+   * WHERE user_id = ?
+   * AND category = ? -- if category provided
+   * ORDER BY site_name ASC
+   * LIMIT 20 OFFSET 0
+   * ```
+   */
+  public async findByUserIdWithCriteria(
+    userId: string,
+    page: number,
+    limit: number,
+    sortBy: string,
+    sortOrder: 'asc' | 'desc',
+    category?: string
+  ): Promise<PasswordEntry[]> {
+    // Step 1: Create QueryBuilder
+    // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment, @typescript-eslint/no-unsafe-call, @typescript-eslint/no-unsafe-member-access
+    const queryBuilder = this.repository
+      .createQueryBuilder('passwordEntry')
+      .where('passwordEntry.userId = :userId', { userId });
+
+    // Step 2: Add category filter if provided
+    if (category) {
+      // eslint-disable-next-line @typescript-eslint/no-unsafe-call, @typescript-eslint/no-unsafe-member-access
+      queryBuilder.andWhere('passwordEntry.category = :category', { category });
+    }
+
+    // Step 3: Add sorting
+    // Map domain field names to database column names
+    const columnName = this.mapSortByToColumn(sortBy);
+    // eslint-disable-next-line @typescript-eslint/no-unsafe-call, @typescript-eslint/no-unsafe-member-access
+    queryBuilder.orderBy(`passwordEntry.${columnName}`, sortOrder.toUpperCase() as 'ASC' | 'DESC');
+
+    // Step 4: Add pagination
+    const offset = (page - 1) * limit;
+    // eslint-disable-next-line @typescript-eslint/no-unsafe-call, @typescript-eslint/no-unsafe-member-access
+    queryBuilder.skip(offset).take(limit);
+
+    // Step 5: Execute query
+    // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment, @typescript-eslint/no-unsafe-call, @typescript-eslint/no-unsafe-member-access
+    const entities = await queryBuilder.getMany();
+
+    // Step 6: Map entities to domain aggregates
+    // eslint-disable-next-line @typescript-eslint/no-unsafe-return, @typescript-eslint/no-unsafe-call, @typescript-eslint/no-unsafe-member-access, @typescript-eslint/no-unsafe-argument
+    return entities.map((entity: PasswordEntryEntity) => PasswordEntryMapper.toDomain(entity));
+  }
+
+  /**
+   * Counts total password entries belonging to a user
+   *
+   * Implementation:
+   * 1. Build QueryBuilder with WHERE clause for userId
+   * 2. Add category filter if provided
+   * 3. Execute COUNT query
+   * 4. Return count as number
+   *
+   * @param userId - The user ID (primitive string)
+   * @param category - Optional category filter
+   * @returns Total count of entries for this user
+   * @throws Database errors (connection, etc.)
+   *
+   * Performance:
+   * - Database COUNT query (very fast)
+   * - Uses indexes for efficient filtering
+   * - No data transfer (only count returned)
+   *
+   * SQL Example (for reference):
+   * ```sql
+   * SELECT COUNT(*) FROM password_entries
+   * WHERE user_id = ?
+   * AND category = ? -- if category provided
+   * ```
+   */
+  public async countByUserId(userId: string, category?: string): Promise<number> {
+    // Step 1: Create QueryBuilder
+    // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment, @typescript-eslint/no-unsafe-call, @typescript-eslint/no-unsafe-member-access
+    const queryBuilder = this.repository
+      .createQueryBuilder('passwordEntry')
+      .where('passwordEntry.userId = :userId', { userId });
+
+    // Step 2: Add category filter if provided
+    if (category) {
+      // eslint-disable-next-line @typescript-eslint/no-unsafe-call, @typescript-eslint/no-unsafe-member-access
+      queryBuilder.andWhere('passwordEntry.category = :category', { category });
+    }
+
+    // Step 3: Execute COUNT query
+    // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment, @typescript-eslint/no-unsafe-call, @typescript-eslint/no-unsafe-member-access
+    const count = await queryBuilder.getCount();
+
+    // Step 4: Return count
+    // eslint-disable-next-line @typescript-eslint/no-unsafe-return
+    return count;
+  }
+
+  /**
+   * Maps domain sort field names to database column names
+   *
+   * This encapsulates the translation between domain language and database schema.
+   * If we rename database columns, we only need to update this method.
+   *
+   * @param sortBy - Domain field name
+   * @returns Database column name
+   */
+  private mapSortByToColumn(sortBy: string): string {
+    const columnMap: Record<string, string> = {
+      siteName: 'siteName',
+      createdAt: 'createdAt',
+      category: 'category',
+    };
+
+    return columnMap[sortBy] ?? 'siteName'; // Default to siteName if unknown
+  }
+
+  /**
    * Deletes a password entry by its ID
    *
    * Implementation:

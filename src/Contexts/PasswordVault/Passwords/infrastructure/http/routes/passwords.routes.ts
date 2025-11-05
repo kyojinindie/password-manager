@@ -1,5 +1,6 @@
 import { Router } from 'express';
 import { CreatePasswordEntryController } from '../controllers/CreatePasswordEntryController';
+import { ListPasswordEntriesController } from '../controllers/ListPasswordEntriesController';
 import { authenticateJWT } from '../../../../../../apps/api/middleware/authenticateJWT';
 
 /**
@@ -68,26 +69,98 @@ import { authenticateJWT } from '../../../../../../apps/api/middleware/authentic
  * Creates the passwords router with all dependencies injected
  *
  * @param createController - Fully configured CreatePasswordEntryController
+ * @param listController - Fully configured ListPasswordEntriesController
  * @returns Express Router with password routes configured
  *
  * Example usage:
  * ```typescript
  * import { createPasswordsRoutes } from './routes/passwords.routes';
- * import { createCreatePasswordEntryController } from './dependencies';
+ * import { createCreatePasswordEntryController, createListPasswordEntriesController } from './dependencies';
  *
  * const createController = createCreatePasswordEntryController(
  *   passwordEntryRepository,
  *   passwordEncryptionService
  * );
+ * const listController = createListPasswordEntriesController(
+ *   passwordEntryRepository
+ * );
  *
- * const passwordsRouter = createPasswordsRoutes(createController);
+ * const passwordsRouter = createPasswordsRoutes(createController, listController);
  * app.use('/api/passwords', passwordsRouter);
  * ```
  */
 export function createPasswordsRoutes(
-  createController: CreatePasswordEntryController
+  createController: CreatePasswordEntryController,
+  listController: ListPasswordEntriesController
 ): Router {
   const router = Router();
+
+  /**
+   * GET /api/passwords
+   *
+   * List all password entries for the authenticated user
+   *
+   * Authentication: REQUIRED
+   *
+   * Request headers:
+   * Authorization: Bearer <access-token>
+   *
+   * Query parameters (all optional):
+   * - page: Page number (1-based, default: 1)
+   * - limit: Items per page (default: 20, max: 100)
+   * - sortBy: Field to sort by (siteName, createdAt, category, default: siteName)
+   * - sortOrder: Sort direction (asc, desc, default: asc)
+   * - category: Category filter (PERSONAL, WORK, SOCIAL, FINANCIAL, OTHER)
+   *
+   * Example requests:
+   * - GET /api/passwords
+   * - GET /api/passwords?page=2&limit=10
+   * - GET /api/passwords?sortBy=createdAt&sortOrder=desc
+   * - GET /api/passwords?category=WORK
+   *
+   * Success Response (200 OK):
+   * {
+   *   "data": [
+   *     {
+   *       "id": "uuid",
+   *       "userId": "user-id",
+   *       "siteName": "GitHub",
+   *       "siteUrl": "https://github.com",
+   *       "username": "john.doe@email.com",
+   *       "encryptedPassword": "encrypted-password-string",
+   *       "category": "WORK",
+   *       "notes": "My work GitHub account",
+   *       "tags": ["important", "2fa-enabled"],
+   *       "createdAt": "2024-01-15T10:30:00.000Z",
+   *       "updatedAt": "2024-01-15T10:30:00.000Z"
+   *     }
+   *   ],
+   *   "pagination": {
+   *     "page": 1,
+   *     "limit": 20,
+   *     "total": 45,
+   *     "totalPages": 3
+   *   }
+   * }
+   *
+   * Error Responses:
+   * - 400 Bad Request: Invalid query parameters
+   * - 401 Unauthorized: Missing or invalid JWT token
+   * - 500 Internal Server Error: Unexpected errors
+   *
+   * Security Notes:
+   * - Passwords are returned ENCRYPTED (not plain text)
+   * - User can only see their own entries (userId from JWT)
+   *
+   * Authentication Middleware Applied:
+   * - authenticateJWT verifies JWT token from Authorization header
+   * - Extracts userId from token payload
+   * - Adds userId to req.user.userId
+   * - Returns 401 if token is missing, invalid, or expired
+   */
+  router.get('/', authenticateJWT, (req, res) => {
+    void listController.run(req, res);
+  });
 
   /**
    * POST /api/passwords
@@ -157,21 +230,6 @@ export function createPasswordsRoutes(
 
   /**
    * Future routes to be implemented:
-   */
-
-  /**
-   * GET /api/passwords
-   *
-   * Get all password entries for the authenticated user
-   *
-   * Future implementation will include:
-   * - Pagination (page, limit query params)
-   * - Sorting (sortBy, order query params)
-   * - Filtering (category, tags query params)
-   * - Search (q query param)
-   *
-   * Example:
-   * router.get('/', authenticateJWT, (req, res) => getPasswordEntriesController.run(req, res));
    */
 
   /**
